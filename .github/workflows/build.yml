@@ -7,6 +7,9 @@ on:
   pull_request:
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: windows-latest
@@ -23,12 +26,29 @@ jobs:
       - name: Publish (self-contained, no runtime needed)
         run: dotnet publish NetworkTools.csproj -c Release -r win-x64 --self-contained true -p:EnableCompressionInSingleFile=true -o dist/standalone
 
-      - uses: actions/upload-artifact@v4
-        with:
-          name: NetworkTools-small
-          path: dist/small/NetworkTools.exe
+      - name: Collect exe files
+        shell: bash
+        run: |
+          mkdir out
+          cp dist/small/NetworkTools.exe out/NetworkTools-small.exe
+          cp dist/standalone/NetworkTools.exe out/NetworkTools-standalone.exe
 
       - uses: actions/upload-artifact@v4
         with:
-          name: NetworkTools-standalone
-          path: dist/standalone/NetworkTools.exe
+          name: NetworkTools
+          path: out/*.exe
+
+      # 每次推送 main 后,把最新 exe 发布到固定的 "latest" Release,免登录直接下载
+      - name: Update latest release
+        if: github.event_name != 'pull_request'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete latest --cleanup-tag --yes || true
+          gh release create latest out/NetworkTools-small.exe out/NetworkTools-standalone.exe \
+            --title "最新版 (自动构建)" \
+            --notes "由 GitHub Actions 自动构建,提交 ${GITHUB_SHA::7}。
+          - NetworkTools-small.exe:小体积,需安装 .NET 8 桌面运行时
+          - NetworkTools-standalone.exe:独立版,无需安装运行时" \
+            --target "$GITHUB_SHA" --latest
