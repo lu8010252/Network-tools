@@ -1,9 +1,9 @@
 # 网络工具箱 V1.0
 
-一个 Windows 桌面小工具(C# / WinForms,单文件),把网络排障和系统维护里常用的操作集中到一个窗口里:
+一个 Windows 桌面小工具(C# / WinForms),把网络排障和系统维护里常用的操作集中到一个窗口里:
 看网络状态、一键切换 IP、Ping / 端口扫描 / 路由追踪、DHCP 与环路检测、共享管理、系统清理等。
 
-> 当前仓库只有 `Form1.cs` 一个源码文件(没有 `.csproj`),需要自己建一个 WinForms 项目把它放进去,见下面「编译」。
+> 仓库已带完整工程(`NetworkTools.csproj`),拉取后双击 `build.bat` 就能生成 exe,见下面「编译」。
 
 ## 功能一览
 
@@ -41,24 +41,63 @@
 
 ### 切换 IP 的预设
 
-「常用 0 段 / 1 段 IP 地址」使用 `Form1.cs` 顶部写死的两套参数:
+「常用 0 段 / 1 段 IP 地址」使用 `src/Form1.cs` 顶部写死的两套参数:
 
 | | IP | 掩码 | 网关 | DNS |
 |---|---|---|---|---|
 | 1 段(家庭) | 192.168.1.222 | 255.255.255.0 | 192.168.1.1 | 223.5.5.5 / 114.114.114.114 |
 | 0 段(办公) | 192.168.0.222 | 255.255.255.0 | 192.168.0.1 | 223.5.5.5 / 114.114.114.114 |
 
-要换成自己的网段,修改 `Form1.cs` 开头 `homeIp / homeGw / workIp / workGw` 等几个变量后重新编译即可。
+要换成自己的网段,修改 `src/Form1.cs` 开头 `homeIp / homeGw / workIp / workGw` 等几个变量后重新编译即可。
 操作的网卡由程序自动识别(会跳过虚拟网卡和回环,锁定真实的有线/无线物理网卡),不用手动指定;如果电脑上有多块物理网卡,请先确认当前看板里显示的「操作网卡」是不是你要改的那块。
 
 ## 编译
 
-环境:Windows + Visual Studio 2022(或 `dotnet` SDK),目标为 Windows 窗体应用。
+环境:Windows + [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0)(装了 Visual Studio 2022 的话也自带)。
 
-1. 新建「Windows 窗体应用」项目,命名空间用 `NeworkTool`(与文件里一致;或改文件里的命名空间)。
-2. 用本仓库的 `Form1.cs` 替换项目里的 `Form1.cs`,删掉自动生成的 `Form1.Designer.cs`(界面是纯代码构建的,不需要设计器文件)。
-3. 保证 `Program.cs` 里是标准入口:`Application.Run(new NeworkTool.Form1());`
-4. 生成并运行。需要管理员权限的功能,可在项目里添加应用程序清单(`app.manifest`),把 `requestedExecutionLevel` 设为 `requireAdministrator`,这样双击就以管理员身份启动。
+### 方式一:双击 `build.bat`(最省事)
+
+拉取仓库后双击 `build.bat`,选一种版本,生成的程序在 `dist\NetworkTools.exe`:
+
+- **小体积版**:几 MB,电脑需要装 [.NET 8 桌面运行时](https://dotnet.microsoft.com/download/dotnet/8.0);
+- **独立版**:体积大,但不用装任何运行时,拷到别的电脑直接用。
+
+等价命令行:
+
+```bat
+dotnet publish NetworkTools.csproj -c Release -r win-x64 --self-contained false -o dist
+```
+
+### 方式二:Visual Studio
+
+用 VS 2022 打开 `NetworkTools.csproj`,直接生成 / 运行即可(程序带管理员清单,会弹 UAC 提示)。
+
+### 方式三:GitHub Actions 自动构建
+
+每次推送到 `main`,Actions 会在云端编译并上传两个 exe(小体积版 / 独立版),到仓库的 Actions → 对应运行记录 → Artifacts 里下载,本机不用装任何环境。
+
+## 代码结构
+
+界面是纯代码构建的(没有设计器文件),`Form1` 是一个 `partial class`,按功能拆在 `src/` 下:
+
+| 文件 | 内容 |
+|---|---|
+| `Program.cs` | 程序入口 |
+| `Form1.cs` | 全局配置(IP 预设等)、控件声明、P/Invoke、主窗体布局、美化基础函数 |
+| `Form1.NetStatus.cs` | 状态看板与快捷切换 IP、诊断报告、网络重置 |
+| `Form1.LanScan.cs` | 局域网主机发现(ARP 扫描) |
+| `Form1.Camera.cs` | 摄像头设备扫描 |
+| `Form1.Ping.cs` / `Form1.PingRange.cs` | 单个 / 持续 / 批量 / 网段 / TCP Ping |
+| `Form1.PortScan.cs` | 端口开放扫描 |
+| `Form1.Traceroute.cs` | 路由追踪 |
+| `Form1.Dhcp.cs` | DHCP 服务器检测 |
+| `Form1.LoopTest.cs` | 局域网回路测试 |
+| `Form1.IpConflict.cs` | IP 冲突检测 |
+| `Form1.Share.cs` | 网络共享管理 |
+| `Form1.SysTools.cs` | 系统高级工具 |
+| `Form1.Uninstall.cs` | 软件卸载与残留清理 |
+| `Form1.Cleanup.cs` | C 盘深度安全清理 |
+| `Form1.Helpers.cs` | 通用辅助函数(ARP/MAC、导出、PowerShell、WiFi 频段、硬件信息等) |
 
 ## 注意
 

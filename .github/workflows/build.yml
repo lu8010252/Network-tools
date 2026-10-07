@@ -1,0 +1,34 @@
+name: build-exe
+
+on:
+  push:
+    branches: [main]
+    paths-ignore: ['**.md']
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Publish (small, needs .NET 8 Desktop Runtime)
+        run: dotnet publish NetworkTools.csproj -c Release -r win-x64 --self-contained false -o dist/small
+
+      - name: Publish (self-contained, no runtime needed)
+        run: dotnet publish NetworkTools.csproj -c Release -r win-x64 --self-contained true -p:EnableCompressionInSingleFile=true -o dist/standalone
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: NetworkTools-small
+          path: dist/small/NetworkTools.exe
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: NetworkTools-standalone
+          path: dist/standalone/NetworkTools.exe
