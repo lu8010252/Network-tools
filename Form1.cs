@@ -238,7 +238,7 @@ namespace NeworkTool
             // 如果编译运行之后标题栏没有显示 [BUILD-FIX20260706] 这个后缀，
             // 说明你运行的 exe 不是用这份 Form1.cs 编译出来的（可能编译到了别的目录、
             // 或者跑的是旧的 exe），这时候不管我再怎么改代码，界面都不会有变化。
-            this.Text = "路健的网络工具箱V1.0 [FIX-v18-颜色统一+WiFi频段稳健解析]";
+            this.Text = "网络工具箱 V1.0 [FIX-v18-颜色统一+WiFi频段稳健解析]";
             // 上一版把 MinimumSize 降到 1000，太小了——"系统高级工具"那个4列按钮网格
             // 实际需要约 844px 宽的内容区，窗口拖到 1000 时可用内容区只剩约 762px，
             // 天然装不下，所以才会出现裁切/横向滚动条，这不是 bug，是最小宽度给得
@@ -256,7 +256,7 @@ namespace NeworkTool
             Panel topBar = new Panel { Location = new Point(15, 15), Size = new Size(1075, 42), BackColor = colorWhite };
             this.Controls.Add(topBar);
 
-            Label lblAppTitle = new Label { Text = "🛠️ 路健的网络工具箱V1.0", Font = fontTitle, ForeColor = colorPrimary, AutoSize = true, Location = new Point(4, 10) };
+            Label lblAppTitle = new Label { Text = "🛠️ 网络工具箱 V1.0", Font = fontTitle, ForeColor = colorPrimary, AutoSize = true, Location = new Point(4, 10) };
             topBar.Controls.Add(lblAppTitle);
 
             // 【重做导航】原生 TabControl 左侧竖排标签栏，标签一多（现在12个）就会排不下、
@@ -999,7 +999,7 @@ namespace NeworkTool
         private async Task ExportDiagnosticReportAsync()
         {
             var sb = new StringBuilder();
-            sb.AppendLine("========== 路健的网络工具箱 · 诊断报告 ==========");
+            sb.AppendLine("========== 网络工具箱 · 诊断报告 ==========");
             sb.AppendLine($"生成时间: {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
             sb.AppendLine();
             sb.AppendLine("【健康看板快照】");
