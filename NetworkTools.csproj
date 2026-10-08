@@ -7,6 +7,7 @@
     <RootNamespace>NeworkTool</RootNamespace>
     <AssemblyName>NetworkTools</AssemblyName>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>app.ico</ApplicationIcon>
     <ImplicitUsings>disable</ImplicitUsings>
     <Nullable>disable</Nullable>
     <LangVersion>latest</LangVersion>

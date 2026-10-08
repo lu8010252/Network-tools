@@ -239,6 +239,7 @@ namespace NeworkTool
             // 说明你运行的 exe 不是用这份 Form1.cs 编译出来的（可能编译到了别的目录、
             // 或者跑的是旧的 exe），这时候不管我再怎么改代码，界面都不会有变化。
             this.Text = "网络工具箱 V1.0 [FIX-v18-颜色统一+WiFi频段稳健解析]";
+            try { this.Icon = System.Drawing.Icon.ExtractAssociatedIcon(Application.ExecutablePath); } catch { }
             // 上一版把 MinimumSize 降到 1000，太小了——"系统高级工具"那个4列按钮网格
             // 实际需要约 844px 宽的内容区，窗口拖到 1000 时可用内容区只剩约 762px，
             // 天然装不下，所以才会出现裁切/横向滚动条，这不是 bug，是最小宽度给得
