@@ -105,7 +105,7 @@ namespace NeworkTool
 
             Label lblDesc = new Label
             {
-                Text = "自动扫描当前网段，通过 Web 管理页面指纹 + 常见私有协议端口特征，识别海康、大华、天地伟业、宇视、同为、雄迈系杂牌等摄像头/NVR 设备（含 ONVIF / RTSP 探测）。扫描完成后，双击列表中的一行即可直接用浏览器打开该设备的 Web 管理页面。",
+                Text = "自动扫描当前网段，通过 Web 管理页面指纹 + 常见私有协议端口特征，识别海康、大华、天地伟业、宇视、同为、雄迈系杂牌等摄像头/NVR 设备（含 ONVIF / RTSP 探测）。扫描完成后，双击列表中的一行即可登录设备（预览画面、修改 IP 等），右键可用浏览器打开 Web 管理页面。",
                 Location = new Point(15, 22),
                 Size = new Size(850, 40),
                 Font = fontNormal,
@@ -141,18 +141,19 @@ namespace NeworkTool
             // listViewCamera 高度要留出底部 footer 的空间，所以底边距用 footer高度+15 的间隙。
             AutoStretch(tabCamera, listViewCamera, width: true, height: true, rightMargin: 15, bottomMargin: lblCameraFooter.Height + 20);
 
-            // 双击直接打开该设备的 Web 管理页面
+            // 双击打开登录窗口(预览画面 / 查看设备信息 / 修改 IP 等)
             listViewCamera.MouseDoubleClick += (s, e) =>
             {
                 if (listViewCamera.SelectedItems.Count == 0) return;
-                if (listViewCamera.SelectedItems[0].Tag is CameraDeviceInfo info) OpenCameraWebPage(info);
+                if (listViewCamera.SelectedItems[0].Tag is CameraDeviceInfo info) OpenCameraLogin(info);
             };
 
             // 右键菜单，跟其它页面（软件卸载/共享管理）的操作习惯保持一致
             var ctxMenu = new ContextMenuStrip();
+            var ctxLogin = new ToolStripMenuItem("登录设备 / 预览 / 修改 IP...");
             var ctxOpenWeb = new ToolStripMenuItem("在浏览器中打开 Web 管理页面");
             var ctxCopyIp = new ToolStripMenuItem("复制 IP 地址");
-            ctxMenu.Items.AddRange(new ToolStripItem[] { ctxOpenWeb, ctxCopyIp });
+            ctxMenu.Items.AddRange(new ToolStripItem[] { ctxLogin, ctxOpenWeb, ctxCopyIp });
             listViewCamera.ContextMenuStrip = ctxMenu;
             listViewCamera.MouseUp += (s, e) =>
             {
@@ -160,11 +161,17 @@ namespace NeworkTool
                 var hit = listViewCamera.HitTest(e.Location);
                 if (hit.Item != null) hit.Item.Selected = true;
             };
+            ctxLogin.Click += (s, e) => { if (listViewCamera.SelectedItems.Count > 0 && listViewCamera.SelectedItems[0].Tag is CameraDeviceInfo info) OpenCameraLogin(info); };
             ctxOpenWeb.Click += (s, e) => { if (listViewCamera.SelectedItems.Count > 0 && listViewCamera.SelectedItems[0].Tag is CameraDeviceInfo info) OpenCameraWebPage(info); };
             ctxCopyIp.Click += (s, e) => { if (listViewCamera.SelectedItems.Count > 0 && listViewCamera.SelectedItems[0].Tag is CameraDeviceInfo info) { try { Clipboard.SetText(info.Ip); } catch { } } };
 
             btnStartCameraScan.Click += async (s, e) => { await StartCameraScanAsync(); };
             btnStopCameraScan.Click += (s, e) => { ctsCamera?.Cancel(); };
+        }
+
+        private void OpenCameraLogin(CameraDeviceInfo info)
+        {
+            using (var dlg = new CameraLoginForm(info.Ip, info.Brand, info.WebPort, info.OpenPorts)) dlg.ShowDialog(this);
         }
 
         private void OpenCameraWebPage(CameraDeviceInfo info)
@@ -437,7 +444,7 @@ namespace NeworkTool
             listViewCamera.EndUpdate();
             btnStartCameraScan.Enabled = true; btnStopCameraScan.Enabled = false;
             if (!ctsCamera.Token.IsCancellationRequested)
-                MessageBox.Show($"摄像头/监控设备扫描完成！共发现 {found} 台相关设备。双击列表中的一行即可用浏览器打开其 Web 管理页面。", "扫描完成");
+                MessageBox.Show($"摄像头/监控设备扫描完成！共发现 {found} 台相关设备。双击列表中的一行即可登录设备预览/修改设置。", "扫描完成");
             else
                 lblCameraFooter.Text = $"已手动停止 | 已发现疑似摄像头/监控设备: {found} 台";
         }
