@@ -32,11 +32,15 @@ jobs:
           mkdir out
           cp dist/small/NetworkTools.exe out/NetworkTools-small.exe
           cp dist/standalone/NetworkTools.exe out/NetworkTools-standalone.exe
+          # 带实时视频的完整包:独立版 exe + libvlc 原生库文件夹(解压后整个文件夹一起用)
+          (cd dist/standalone && 7z a -tzip ../../out/NetworkTools-video.zip NetworkTools.exe libvlc -r > /dev/null)
 
       - uses: actions/upload-artifact@v4
         with:
           name: NetworkTools
-          path: out/*.exe
+          path: |
+            out/*.exe
+            out/*.zip
 
       # 每次推送 main 后,把最新 exe 发布到固定的 "latest" Release,免登录直接下载
       - name: Update latest release
@@ -46,9 +50,10 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release delete latest --cleanup-tag --yes || true
-          gh release create latest out/NetworkTools-small.exe out/NetworkTools-standalone.exe \
+          gh release create latest out/NetworkTools-small.exe out/NetworkTools-standalone.exe out/NetworkTools-video.zip \
             --title "最新版 (自动构建)" \
             --notes "由 GitHub Actions 自动构建,提交 ${GITHUB_SHA::7}。
           - NetworkTools-small.exe:小体积,需安装 .NET 8 桌面运行时
-          - NetworkTools-standalone.exe:独立版,无需安装运行时" \
+          - NetworkTools-standalone.exe:独立版,无需安装运行时
+          - NetworkTools-video.zip:独立版 + libvlc,摄像头登录后可看实时视频(整包解压使用);单独的 exe 只能看快照预览" \
             --target "$GITHUB_SHA" --latest

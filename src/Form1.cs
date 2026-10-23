@@ -68,7 +68,7 @@ namespace NeworkTool
         // 【新增】摄像头/监控设备扫描 Tab 用到的控件
         private ListView listViewCamera;
         private ProgressBar progressBarCamera;
-        private Button btnStartCameraScan, btnStopCameraScan;
+        private Button btnStartCameraScan, btnStopCameraScan, btnCameraBatch;
         private Label lblCameraFooter;
         private CancellationTokenSource ctsCamera;
 

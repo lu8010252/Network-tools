@@ -11,6 +11,8 @@ using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using LibVLCSharp.Shared;
+using LibVLCSharp.WinForms;
 #nullable disable
 
 namespace NeworkTool
@@ -44,10 +46,38 @@ namespace NeworkTool
         private static readonly Font fNormal = new Font("Microsoft YaHei", 9F);
         private static readonly Font fBold = new Font("Microsoft YaHei", 9F, FontStyle.Bold);
 
-        public CameraLoginForm(string ip, string brand, int webPort, string openPorts)
+        // 视频播放(LibVLC)。没有 libvlc 原生库时自动退回快照预览。
+        private static bool vlcCoreReady, vlcCoreFailed;
+        private LibVLC libVlc;
+        private MediaPlayer vlcPlayer;
+        private VideoView videoView;
+        private string autoUser, autoPass;
+        /// <summary>批量登录用：不预览、不启动定时器，只验证账号并读取设备信息。</summary>
+        public bool Headless;
+        public string Protocol { get { return mode; } }
+        public string InfoText { get { return txtInfo.Text; } }
+
+        public CameraLoginForm(string ip, string brand, int webPort, string openPorts) : this(ip, brand, webPort, openPorts, null, null) { }
+
+        /// <summary>带账号密码构造：窗口显示后自动登录(批量登录后双击进入用)。</summary>
+        public CameraLoginForm(string ip, string brand, int webPort, string openPorts, string user, string pass)
         {
             this.ip = ip; this.brand = brand ?? "";
             BuildUi(webPort, openPorts);
+            if (pass != null)
+            {
+                autoUser = user; autoPass = pass;
+                txtUser.Text = user; txtPass.Text = pass;
+                Shown += async (s, e) => await LoginAsync();
+            }
+        }
+
+        public async Task<bool> HeadlessLoginAsync(string u, string p)
+        {
+            Headless = true;
+            txtUser.Text = u; txtPass.Text = p;
+            await LoginAsync();
+            return mode != null;
         }
 
         #region ---- UI ----
@@ -123,7 +153,7 @@ namespace NeworkTool
             btnCopyRtsp.Click += (s, e) => { try { Clipboard.SetText(rtspUrl ?? ""); SetStatus("RTSP 地址已复制(不含密码，播放器里需填账号密码)", Color.DarkGreen); } catch { } };
             btnApply.Click += async (s, e) => await ApplyAsync();
             btnReboot.Click += async (s, e) => await RebootAsync();
-            FormClosed += (s, e) => { timer.Stop(); timer.Dispose(); http?.Dispose(); if (pic.Image != null) pic.Image.Dispose(); pass = null; };
+            FormClosed += (s, e) => { StopVideo(); timer.Stop(); timer.Dispose(); http?.Dispose(); if (pic.Image != null) pic.Image.Dispose(); pass = null; };
         }
 
         private void SetStatus(string text, Color color) { lblStatus.Text = text; lblStatus.ForeColor = color; }
@@ -141,7 +171,7 @@ namespace NeworkTool
             user = txtUser.Text.Trim(); pass = txtPass.Text;
             if (user.Length == 0) { SetStatus("请输入用户名", Color.Firebrick); return; }
 
-            btnLogin.Enabled = false; timer.Stop(); SetLoggedIn(false);
+            btnLogin.Enabled = false; timer.Stop(); StopVideo(); SetLoggedIn(false);
             SetStatus("正在登录...", Color.DimGray);
             http?.Dispose();
             http = new HttpClient(new HttpClientHandler
@@ -194,8 +224,60 @@ namespace NeworkTool
 
             SetStatus($"已登录 ({mode} @ {baseUrl})", Color.DarkGreen);
             SetLoggedIn(true);
-            await RefreshFrameAsync();
-            timer.Start();
+            if (Headless) return;
+            if (!TryStartVideo())
+            {
+                await RefreshFrameAsync();
+                timer.Start();
+            }
+        }
+
+        private static string WithCreds(string url, string u, string p)
+        {
+            if (string.IsNullOrEmpty(url) || url.IndexOf('@') >= 0) return url;
+            return Regex.Replace(url, "^rtsp://", "rtsp://" + Uri.EscapeDataString(u) + ":" + Uri.EscapeDataString(p ?? "") + "@", RegexOptions.IgnoreCase);
+        }
+
+        /// <summary>优先用 LibVLC 播放 RTSP 实时视频；失败(缺 libvlc 等)返回 false，由调用方退回快照预览。</summary>
+        private bool TryStartVideo()
+        {
+            if (string.IsNullOrEmpty(rtspUrl) || vlcCoreFailed) return false;
+            try
+            {
+                if (!vlcCoreReady) { Core.Initialize(); vlcCoreReady = true; }
+                StopVideo();
+                if (videoView == null)
+                {
+                    videoView = new VideoView { Location = pic.Location, Size = pic.Size, Anchor = pic.Anchor, BackColor = Color.Black };
+                    Controls.Add(videoView);
+                }
+                libVlc = new LibVLC("--network-caching=300", "--rtsp-tcp");
+                vlcPlayer = new MediaPlayer(libVlc);
+                videoView.MediaPlayer = vlcPlayer;
+                videoView.Visible = true; pic.Visible = false;
+                chkLive.Visible = false; btnRefresh.Visible = false;
+                vlcPlayer.Play(new Media(libVlc, WithCreds(rtspUrl, user, pass), FromType.FromLocation));
+                SetStatus($"已登录 ({mode} @ {baseUrl}) · 实时视频", Color.DarkGreen);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                vlcCoreFailed = true;
+                StopVideo();
+                if (videoView != null) videoView.Visible = false;
+                pic.Visible = true; chkLive.Visible = true; btnRefresh.Visible = true;
+                txtInfo.AppendText("\r\n[视频播放不可用，已改用快照预览: " + Shorten(ex.Message) + "]");
+                return false;
+            }
+        }
+
+        private void StopVideo()
+        {
+            try { vlcPlayer?.Stop(); } catch { }
+            try { if (videoView != null) videoView.MediaPlayer = null; } catch { }
+            try { vlcPlayer?.Dispose(); } catch { }
+            try { libVlc?.Dispose(); } catch { }
+            vlcPlayer = null; libVlc = null;
         }
 
         private static string Shorten(string s) { s = Regex.Replace(s ?? "", @"\s+", " "); return s.Length > 90 ? s.Substring(0, 90) + "..." : s; }

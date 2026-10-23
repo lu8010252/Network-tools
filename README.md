@@ -22,7 +22,7 @@
 | 局域网回路测试 | 检测交换机物理环路(会引发广播风暴),发测试包看是否绕回本机 |
 | IP 冲突检测 | 检查某个 IP 是否被别的设备占用 |
 | 网络共享管理 | 查看 / 新建 / 删除共享,打开共享文件夹;**一键修复共享访问问题**(修复工作组环境访问管理员共享被拒绝等),**启用 SMB1(兼容老设备)** |
-| 摄像头设备扫描 | 扫描局域网里的摄像头 / 监控设备；双击登录后可预览画面、修改 IP / 网关 / DNS、重启(ONVIF、海康 ISAPI、大华 CGI) |
+| 摄像头设备扫描 | 扫描局域网里的摄像头 / 监控设备；双击登录后可实时看画面(有 RTSP 时自动用 LibVLC 播放，否则退回每秒快照)、修改 IP / 网关 / DNS、重启(ONVIF、海康 ISAPI、大华 CGI)；支持**批量登录**：同一组账号(+备用密码)对多台设备一次性尝试 |
 
 ### 🛠️ 系统维护
 
@@ -87,7 +87,8 @@ dotnet publish NetworkTools.csproj -c Release -r win-x64 --self-contained false 
 | `Form1.NetStatus.cs` | 状态看板与快捷切换 IP、诊断报告、网络重置 |
 | `Form1.LanScan.cs` | 局域网主机发现(ARP 扫描) |
 | `Form1.Camera.cs` | 摄像头设备扫描 |
-| `CameraLoginForm.cs` | 摄像头登录窗口(预览 / 改 IP / 重启) |
+| `CameraLoginForm.cs` | 摄像头登录窗口(实时视频/快照预览、改 IP、重启) |
+| `Form1.CameraBatch.cs` | 摄像头批量登录窗口 |
 | `Form1.Ping.cs` / `Form1.PingRange.cs` | 单个 / 持续 / 批量 / 网段 / TCP Ping |
 | `Form1.PortScan.cs` | 端口开放扫描 |
 | `Form1.Traceroute.cs` | 路由追踪 |

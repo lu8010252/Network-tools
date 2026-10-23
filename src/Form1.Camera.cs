@@ -105,7 +105,7 @@ namespace NeworkTool
 
             Label lblDesc = new Label
             {
-                Text = "自动扫描当前网段，通过 Web 管理页面指纹 + 常见私有协议端口特征，识别海康、大华、天地伟业、宇视、同为、雄迈系杂牌等摄像头/NVR 设备（含 ONVIF / RTSP 探测）。扫描完成后，双击列表中的一行即可登录设备（预览画面、修改 IP 等），右键可用浏览器打开 Web 管理页面。",
+                Text = "自动扫描当前网段，通过 Web 管理页面指纹 + 常见私有协议端口特征，识别海康、大华、天地伟业、宇视、同为、雄迈系杂牌等摄像头/NVR 设备（含 ONVIF / RTSP 探测）。扫描完成后，双击列表中的一行即可登录设备（预览画面、修改 IP 等），右键可用浏览器打开 Web 管理页面；点「批量登录」可用同一组账号密码对选中（或全部）设备批量尝试登录。",
                 Location = new Point(15, 22),
                 Size = new Size(850, 40),
                 Font = fontNormal,
@@ -118,8 +118,10 @@ namespace NeworkTool
             btnStartCameraScan.FlatAppearance.BorderSize = 0;
             btnStopCameraScan = new Button { Text = "🔲 停止", Location = new Point(185, 65), Size = new Size(80, 32), FlatStyle = FlatStyle.Flat, BackColor = colorWhite, ForeColor = textDark, Enabled = false, Font = fontNormal };
             btnStopCameraScan.FlatAppearance.BorderColor = colorBorder;
-            progressBarCamera = new ProgressBar { Location = new Point(280, 69), Size = new Size(585, 23), Style = ProgressBarStyle.Continuous };
-            groupCtrl.Controls.AddRange(new Control[] { btnStartCameraScan, btnStopCameraScan, progressBarCamera });
+            btnCameraBatch = new Button { Text = "🔑 批量登录", Location = new Point(275, 65), Size = new Size(110, 32), FlatStyle = FlatStyle.Flat, BackColor = colorWhite, ForeColor = textDark, Font = fontNormal };
+            btnCameraBatch.FlatAppearance.BorderColor = colorBorder;
+            progressBarCamera = new ProgressBar { Location = new Point(395, 69), Size = new Size(470, 23), Style = ProgressBarStyle.Continuous };
+            groupCtrl.Controls.AddRange(new Control[] { btnStartCameraScan, btnStopCameraScan, btnCameraBatch, progressBarCamera });
             AutoStretch(groupCtrl, progressBarCamera);
 
             listViewCamera = new ListView { Location = new Point(15, 125), Size = new Size(880, 400), View = View.Details, FullRowSelect = true, GridLines = true, Scrollable = true, Font = new Font("Consolas", 9.5F) };
@@ -167,6 +169,7 @@ namespace NeworkTool
 
             btnStartCameraScan.Click += async (s, e) => { await StartCameraScanAsync(); };
             btnStopCameraScan.Click += (s, e) => { ctsCamera?.Cancel(); };
+            btnCameraBatch.Click += (s, e) => { OpenCameraBatch(); };
         }
 
         private void OpenCameraLogin(CameraDeviceInfo info)
