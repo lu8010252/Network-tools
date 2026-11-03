@@ -97,6 +97,41 @@ namespace NeworkTool
             ("onvif", "ONVIF 通用网络摄像头"),
         };
 
+        // ---- 列表排序：点击列头按该列排序(再点一次倒序)，默认按 IP 升序 ----
+        private class CameraListSorter : System.Collections.IComparer
+        {
+            public int Col = 1; public bool Asc = true;
+            private static long IpKey(string ip)
+            {
+                long k = 0; var parts = (ip ?? "").Split('.');
+                for (int i = 0; i < 4; i++) { int n; k = k * 256 + (i < parts.Length && int.TryParse(parts[i], out n) ? n : 0); }
+                return k;
+            }
+            private static string BrandKey(string b) { return (b ?? "").Replace("疑似", "").Trim(); }
+            public int Compare(object a, object b)
+            {
+                var x = (ListViewItem)a; var y = (ListViewItem)b;
+                int r;
+                if (Col == 1) r = IpKey(x.SubItems[1].Text).CompareTo(IpKey(y.SubItems[1].Text));
+                else if (Col == 0)
+                {
+                    r = string.Compare(BrandKey(x.SubItems[0].Text), BrandKey(y.SubItems[0].Text), StringComparison.CurrentCultureIgnoreCase);
+                    if (r == 0) r = IpKey(x.SubItems[1].Text).CompareTo(IpKey(y.SubItems[1].Text));   // 同品牌内按 IP 排
+                    return Asc ? r : -r;
+                }
+                else r = string.Compare(x.SubItems[Col].Text, y.SubItems[Col].Text, StringComparison.CurrentCultureIgnoreCase);
+                return Asc ? r : -r;
+            }
+        }
+        private readonly CameraListSorter cameraSorter = new CameraListSorter();
+        private static readonly string[] cameraColNames = { "设备品牌", "IP 地址", "开放端口", "MAC 地址", "识别依据 / 标识信息" };
+
+        private void UpdateCameraSortHeaders()
+        {
+            for (int i = 0; i < listViewCamera.Columns.Count && i < cameraColNames.Length; i++)
+                listViewCamera.Columns[i].Text = cameraColNames[i] + (i == cameraSorter.Col ? (cameraSorter.Asc ? "  ▲" : "  ▼") : "");
+        }
+
         private void BuildTabCameraLayout()
         {
             GroupBox groupCtrl = new GroupBox { Text = " 📷 局域网摄像头 / 监控设备扫描 ", Location = new Point(15, 15), Size = new Size(880, 100), Font = fontBold, ForeColor = colorPrimary };
@@ -135,6 +170,17 @@ namespace NeworkTool
             });
             tabCamera.Controls.Add(listViewCamera);
             AutoFillLastColumn(listViewCamera, 200);
+
+            // 点击列头排序(IP 按数字大小、品牌按名称，同品牌再按 IP)
+            listViewCamera.ListViewItemSorter = cameraSorter;
+            UpdateCameraSortHeaders();
+            listViewCamera.ColumnClick += (s, e) =>
+            {
+                if (cameraSorter.Col == e.Column) cameraSorter.Asc = !cameraSorter.Asc;
+                else { cameraSorter.Col = e.Column; cameraSorter.Asc = true; }
+                UpdateCameraSortHeaders();
+                listViewCamera.Sort();
+            };
 
             lblCameraFooter = new Label { Text = "就绪 | 点击「开始扫描摄像头」定位局域网内的监控设备...", Location = new Point(15, 530), Size = new Size(880, 26), BackColor = colorPrimaryLt, TextAlign = ContentAlignment.MiddleLeft };
             tabCamera.Controls.Add(lblCameraFooter);

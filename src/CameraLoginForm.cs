@@ -27,7 +27,9 @@ namespace NeworkTool
         private readonly string ip;
         private readonly string brand;
 
-        private TextBox txtUser, txtPass, txtNewIp, txtMask, txtGw, txtDns, txtInfo;
+        private TextBox txtUser, txtPass, txtNewIp, txtMask, txtGw, txtDns, txtInfo, txtChannel;
+        private Button btnRename;
+        private Panel previewHost;
         private ComboBox cmbPort;
         private Button btnLogin, btnApply, btnReboot, btnCopyRtsp, btnRefresh;
         private CheckBox chkLive;
@@ -43,8 +45,8 @@ namespace NeworkTool
         private string user, pass;
         private bool busyFrame;
 
-        private static readonly Font fNormal = new Font("Microsoft YaHei", 9F);
-        private static readonly Font fBold = new Font("Microsoft YaHei", 9F, FontStyle.Bold);
+        private static readonly Font fNormal = new Font("Microsoft YaHei UI", 9F);
+        private static readonly Font fBold = new Font("Microsoft YaHei UI", 9F, FontStyle.Bold);
 
         // 视频播放(LibVLC)。没有 libvlc 原生库时自动退回快照预览。
         private static bool vlcCoreReady, vlcCoreFailed;
@@ -83,17 +85,28 @@ namespace NeworkTool
         #region ---- UI ----
         private void BuildUi(int webPort, string openPorts)
         {
+            // 用 DPI 缩放 + 布局面板(自动排版)，高分屏/125%/150% 缩放下文字不再重叠
+            AutoScaleDimensions = new SizeF(96F, 96F);
+            AutoScaleMode = AutoScaleMode.Dpi;
             Text = $"设备登录 - {ip}  {brand}";
-            Size = new Size(1000, 640);
-            MinimumSize = new Size(900, 600);
+            Size = new Size(1060, 720);
+            MinimumSize = new Size(960, 660);
             StartPosition = FormStartPosition.CenterParent;
             Font = fNormal;
 
-            var top = new GroupBox { Text = " 登录 ", Location = new Point(12, 8), Size = new Size(960, 58), Font = fBold, Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right };
-            top.Controls.Add(new Label { Text = "IP:", Location = new Point(12, 28), AutoSize = true, Font = fNormal });
-            top.Controls.Add(new Label { Text = ip, Location = new Point(34, 28), AutoSize = true, Font = fBold });
-            top.Controls.Add(new Label { Text = "端口:", Location = new Point(150, 28), AutoSize = true, Font = fNormal });
-            cmbPort = new ComboBox { Location = new Point(190, 24), Width = 70, Font = fNormal };
+            var root = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 2, Padding = new Padding(10) };
+            root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            root.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+            Controls.Add(root);
+
+            // ---- 登录行 ----
+            var top = new GroupBox { Text = " 登录 ", Dock = DockStyle.Fill, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, Font = fBold, Padding = new Padding(8, 4, 8, 8) };
+            var flow = new FlowLayoutPanel { Dock = DockStyle.Fill, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, WrapContents = true, FlowDirection = FlowDirection.LeftToRight, Font = fNormal };
+            Func<string, Label> lbl = t => new Label { Text = t, AutoSize = true, Margin = new Padding(0, 8, 4, 0), Font = fNormal };
+            flow.Controls.Add(lbl("IP:"));
+            flow.Controls.Add(new Label { Text = ip, AutoSize = true, Margin = new Padding(0, 8, 18, 0), Font = fBold });
+            flow.Controls.Add(lbl("端口:"));
+            cmbPort = new ComboBox { Width = 80, Margin = new Padding(0, 4, 18, 0), Font = fNormal };
             var ports = new List<string>();
             if (webPort > 0) ports.Add(webPort.ToString());
             foreach (var p in (openPorts ?? "").Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries))
@@ -103,46 +116,88 @@ namespace NeworkTool
             if (ports.Count == 0) ports.Add("80");
             cmbPort.Items.AddRange(ports.ToArray());
             cmbPort.Text = ports[0];
-            top.Controls.Add(cmbPort);
-            top.Controls.Add(new Label { Text = "用户名:", Location = new Point(275, 28), AutoSize = true, Font = fNormal });
-            txtUser = new TextBox { Location = new Point(325, 24), Width = 110, Text = "admin", Font = fNormal };
-            top.Controls.Add(txtUser);
-            top.Controls.Add(new Label { Text = "密码:", Location = new Point(445, 28), AutoSize = true, Font = fNormal });
-            txtPass = new TextBox { Location = new Point(485, 24), Width = 130, UseSystemPasswordChar = true, Font = fNormal };
-            top.Controls.Add(txtPass);
-            btnLogin = new Button { Text = "登录", Location = new Point(630, 22), Size = new Size(80, 28), Font = fBold };
-            top.Controls.Add(btnLogin);
-            lblStatus = new Label { Text = "请输入账号密码后登录", Location = new Point(720, 28), AutoSize = true, ForeColor = Color.DimGray, Font = fNormal };
-            top.Controls.Add(lblStatus);
-            Controls.Add(top);
+            flow.Controls.Add(cmbPort);
+            flow.Controls.Add(lbl("用户名:"));
+            txtUser = new TextBox { Width = 120, Text = "admin", Margin = new Padding(0, 4, 18, 0), Font = fNormal };
+            flow.Controls.Add(txtUser);
+            flow.Controls.Add(lbl("密码:"));
+            txtPass = new TextBox { Width = 140, UseSystemPasswordChar = true, Margin = new Padding(0, 4, 18, 0), Font = fNormal };
+            flow.Controls.Add(txtPass);
+            btnLogin = new Button { Text = "登录", AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, MinimumSize = new Size(80, 30), Margin = new Padding(0, 2, 18, 0), Font = fBold };
+            flow.Controls.Add(btnLogin);
+            lblStatus = new Label { Text = "请输入账号密码后登录", AutoSize = true, Margin = new Padding(0, 8, 0, 0), ForeColor = Color.DimGray, Font = fNormal };
+            flow.Controls.Add(lblStatus);
+            top.Controls.Add(flow);
+            root.Controls.Add(top, 0, 0);
 
-            pic = new PictureBox { Location = new Point(12, 74), Size = new Size(590, 400), BorderStyle = BorderStyle.FixedSingle, SizeMode = PictureBoxSizeMode.Zoom, BackColor = Color.Black, Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Bottom | AnchorStyles.Right };
-            Controls.Add(pic);
-            chkLive = new CheckBox { Text = "实时刷新预览(约每秒1张快照)", Location = new Point(12, 482), AutoSize = true, Checked = true, Enabled = false, Anchor = AnchorStyles.Left | AnchorStyles.Bottom };
-            btnRefresh = new Button { Text = "刷新一张", Location = new Point(250, 478), Size = new Size(80, 26), Enabled = false, Anchor = AnchorStyles.Left | AnchorStyles.Bottom };
-            btnCopyRtsp = new Button { Text = "复制 RTSP 地址", Location = new Point(340, 478), Size = new Size(110, 26), Enabled = false, Anchor = AnchorStyles.Left | AnchorStyles.Bottom };
-            Controls.Add(chkLive); Controls.Add(btnRefresh); Controls.Add(btnCopyRtsp);
+            // ---- 主区域：左 预览+信息，右 设置 ----
+            var main = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 1, Margin = new Padding(0, 8, 0, 0) };
+            main.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+            main.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 390F));
+            root.Controls.Add(main, 0, 1);
 
-            txtInfo = new TextBox { Location = new Point(12, 512), Size = new Size(590, 82), Multiline = true, ReadOnly = true, ScrollBars = ScrollBars.Vertical, Font = new Font("Consolas", 9F), Anchor = AnchorStyles.Left | AnchorStyles.Bottom | AnchorStyles.Right };
-            Controls.Add(txtInfo);
+            var left = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 3, Margin = new Padding(0, 0, 10, 0) };
+            left.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+            left.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            left.RowStyles.Add(new RowStyle(SizeType.Absolute, 120F));
+            main.Controls.Add(left, 0, 0);
 
-            var net = new GroupBox { Text = " 网络设置(登录后可用) ", Location = new Point(614, 74), Size = new Size(358, 270), Font = fBold, Anchor = AnchorStyles.Top | AnchorStyles.Right };
-            int y = 28;
+            previewHost = new Panel { Dock = DockStyle.Fill, BackColor = Color.Black, Margin = new Padding(0) };
+            pic = new PictureBox { Dock = DockStyle.Fill, BorderStyle = BorderStyle.None, SizeMode = PictureBoxSizeMode.Zoom, BackColor = Color.Black };
+            previewHost.Controls.Add(pic);
+            left.Controls.Add(previewHost, 0, 0);
+
+            var bar = new FlowLayoutPanel { Dock = DockStyle.Fill, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, WrapContents = true, Margin = new Padding(0, 6, 0, 6) };
+            chkLive = new CheckBox { Text = "实时刷新预览(约每秒1张快照)", AutoSize = true, Checked = true, Enabled = false, Margin = new Padding(0, 6, 14, 0), Font = fNormal };
+            btnRefresh = new Button { Text = "刷新一张", AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, MinimumSize = new Size(84, 30), Enabled = false, Margin = new Padding(0, 0, 8, 0), Font = fNormal };
+            btnCopyRtsp = new Button { Text = "复制 RTSP 地址", AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, MinimumSize = new Size(110, 30), Enabled = false, Margin = new Padding(0), Font = fNormal };
+            bar.Controls.Add(chkLive); bar.Controls.Add(btnRefresh); bar.Controls.Add(btnCopyRtsp);
+            left.Controls.Add(bar, 0, 1);
+
+            txtInfo = new TextBox { Dock = DockStyle.Fill, Multiline = true, ReadOnly = true, ScrollBars = ScrollBars.Vertical, Font = fNormal, Margin = new Padding(0) };
+            left.Controls.Add(txtInfo, 0, 2);
+
+            var right = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.TopDown, WrapContents = false, AutoScroll = true, Margin = new Padding(0) };
+            main.Controls.Add(right, 1, 0);
+
+            // 网络设置
+            var net = new GroupBox { Text = " 网络设置(登录后可用) ", Width = 365, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, Font = fBold, Padding = new Padding(8, 4, 8, 8), Margin = new Padding(0, 0, 0, 10) };
+            var nt = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink };
+            nt.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+            nt.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+            int r = 0;
             Func<string, TextBox> addRow = (label) =>
             {
-                net.Controls.Add(new Label { Text = label, Location = new Point(14, y + 3), AutoSize = true, Font = fNormal });
-                var tb = new TextBox { Location = new Point(100, y), Width = 235, Font = fNormal, Enabled = false };
-                net.Controls.Add(tb); y += 34; return tb;
+                nt.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+                nt.Controls.Add(new Label { Text = label, AutoSize = true, Anchor = AnchorStyles.Left, Margin = new Padding(0, 6, 8, 6), Font = fNormal }, 0, r);
+                var tb = new TextBox { Anchor = AnchorStyles.Left | AnchorStyles.Right, Width = 230, Margin = new Padding(0, 4, 0, 4), Font = fNormal, Enabled = false };
+                nt.Controls.Add(tb, 1, r); r++; return tb;
             };
             txtNewIp = addRow("IP 地址:");
             txtMask = addRow("子网掩码:");
             txtGw = addRow("默认网关:");
             txtDns = addRow("DNS:");
-            net.Controls.Add(new Label { Text = "改 IP 会改为静态地址；应用后设备会断开，\r\n需要用新 IP 重新扫描/登录。请确认新 IP 不冲突。", Location = new Point(14, y), Size = new Size(330, 40), ForeColor = Color.DimGray, Font = fNormal });
-            btnApply = new Button { Text = "应用修改", Location = new Point(14, y + 48), Size = new Size(110, 30), Enabled = false, Font = fBold };
-            btnReboot = new Button { Text = "重启设备", Location = new Point(135, y + 48), Size = new Size(110, 30), Enabled = false, Font = fNormal };
-            net.Controls.Add(btnApply); net.Controls.Add(btnReboot);
-            Controls.Add(net);
+            nt.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            var tip = new Label { Text = "改 IP 会改为静态地址；应用后设备会断开，需要用新 IP 重新扫描/登录。请确认新 IP 不冲突。", AutoSize = true, MaximumSize = new Size(320, 0), ForeColor = Color.DimGray, Margin = new Padding(0, 6, 0, 6), Font = fNormal };
+            nt.Controls.Add(tip, 0, r); nt.SetColumnSpan(tip, 2); r++;
+            nt.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            var nbtn = new FlowLayoutPanel { AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, Margin = new Padding(0) };
+            btnApply = new Button { Text = "应用修改", AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, MinimumSize = new Size(100, 32), Enabled = false, Font = fBold, Margin = new Padding(0, 0, 10, 0) };
+            btnReboot = new Button { Text = "重启设备", AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, MinimumSize = new Size(100, 32), Enabled = false, Font = fNormal, Margin = new Padding(0) };
+            nbtn.Controls.Add(btnApply); nbtn.Controls.Add(btnReboot);
+            nt.Controls.Add(nbtn, 0, r); nt.SetColumnSpan(nbtn, 2);
+            net.Controls.Add(nt);
+            right.Controls.Add(net);
+
+            // 通道名称
+            var ch = new GroupBox { Text = " 通道名称(画面上显示的名字) ", Width = 365, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, Font = fBold, Padding = new Padding(8, 4, 8, 8), Margin = new Padding(0) };
+            var ct = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.TopDown, WrapContents = false, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink };
+            txtChannel = new TextBox { Width = 330, Enabled = false, Font = fNormal, Margin = new Padding(0, 4, 0, 6) };
+            btnRename = new Button { Text = "修改通道名称", AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, MinimumSize = new Size(120, 32), Enabled = false, Font = fBold, Margin = new Padding(0, 0, 0, 6) };
+            var chTip = new Label { Text = "海康/大华改通道名；ONVIF 设备改画面叠加文字，设备不支持时改设备名称。修改后画面标题会更新。", AutoSize = true, MaximumSize = new Size(330, 0), ForeColor = Color.DimGray, Font = fNormal };
+            ct.Controls.Add(txtChannel); ct.Controls.Add(btnRename); ct.Controls.Add(chTip);
+            ch.Controls.Add(ct);
+            right.Controls.Add(ch);
 
             timer = new System.Windows.Forms.Timer { Interval = 1000 };
             timer.Tick += async (s, e) => { if (chkLive.Checked) await RefreshFrameAsync(); };
@@ -153,6 +208,7 @@ namespace NeworkTool
             btnCopyRtsp.Click += (s, e) => { try { Clipboard.SetText(rtspUrl ?? ""); SetStatus("RTSP 地址已复制(不含密码，播放器里需填账号密码)", Color.DarkGreen); } catch { } };
             btnApply.Click += async (s, e) => await ApplyAsync();
             btnReboot.Click += async (s, e) => await RebootAsync();
+            btnRename.Click += async (s, e) => await RenameChannelAsync();
             FormClosed += (s, e) => { StopVideo(); timer.Stop(); timer.Dispose(); http?.Dispose(); if (pic.Image != null) pic.Image.Dispose(); pass = null; };
         }
 
@@ -161,6 +217,7 @@ namespace NeworkTool
         {
             txtNewIp.Enabled = txtMask.Enabled = txtGw.Enabled = txtDns.Enabled = on;
             btnApply.Enabled = btnReboot.Enabled = chkLive.Enabled = btnRefresh.Enabled = on;
+            txtChannel.Enabled = btnRename.Enabled = on;
             btnCopyRtsp.Enabled = on && !string.IsNullOrEmpty(rtspUrl);
         }
         #endregion
@@ -248,8 +305,8 @@ namespace NeworkTool
                 StopVideo();
                 if (videoView == null)
                 {
-                    videoView = new VideoView { Location = pic.Location, Size = pic.Size, Anchor = pic.Anchor, BackColor = Color.Black };
-                    Controls.Add(videoView);
+                    videoView = new VideoView { Dock = DockStyle.Fill, BackColor = Color.Black };
+                    previewHost.Controls.Add(videoView);
                 }
                 libVlc = new LibVLC("--network-caching=300", "--rtsp-tcp");
                 vlcPlayer = new MediaPlayer(libVlc);
@@ -429,6 +486,10 @@ namespace NeworkTool
             if (snapshotUrl == null) sb.AppendLine("该设备未提供快照地址，无法预览(可复制 RTSP 地址用播放器看)");
             if (rtspUrl != null) sb.AppendLine("RTSP: " + rtspUrl);
 
+            // 通道名称
+            txtChannel.Text = "";
+            try { txtChannel.Text = await ReadOnvifChannelAsync(dev); } catch (UnauthorizedAccessException) { throw; } catch { }
+
             // 网络参数
             ifaceToken = null;
             try
@@ -471,6 +532,8 @@ namespace NeworkTool
             snapshotUrl = baseUrl + "/ISAPI/Streaming/channels/101/picture";
             rtspUrl = "rtsp://" + ip + ":554/Streaming/Channels/101";
             sb.AppendLine("RTSP: " + rtspUrl);
+            txtChannel.Text = "";
+            try { txtChannel.Text = Rx(await HttpGetAsync("/ISAPI/System/Video/inputs/channels/1"), @"<name>([^<]*)<"); } catch (UnauthorizedAccessException) { throw; } catch { }
             string ni = await HttpGetAsync("/ISAPI/System/Network/interfaces/1");
             txtNewIp.Text = Rx(RxCs(ni, @"<IPAddress>(.*?)</IPAddress>"), @"ipAddress>([^<]*)<");
             txtMask.Text = Rx(RxCs(ni, @"<IPAddress>(.*?)</IPAddress>"), @"subnetMask>([^<]*)<");
@@ -510,6 +573,8 @@ namespace NeworkTool
             snapshotUrl = baseUrl + "/cgi-bin/snapshot.cgi?channel=1";
             rtspUrl = "rtsp://" + ip + ":554/cam/realmonitor?channel=1&subtype=0";
             sb.AppendLine("RTSP: " + rtspUrl);
+            txtChannel.Text = "";
+            try { txtChannel.Text = Rx(await HttpGetAsync("/cgi-bin/configManager.cgi?action=getConfig&name=ChannelTitle"), @"ChannelTitle\[0\]\.Name=([^\r\n]*)"); } catch (UnauthorizedAccessException) { throw; } catch { }
             string cfg = await HttpGetAsync("/cgi-bin/configManager.cgi?action=getConfig&name=Network");
             txtNewIp.Text = Rx(cfg, @"Network\.eth0\.IPAddress=([^\r\n]*)");
             txtMask.Text = Rx(cfg, @"Network\.eth0\.SubnetMask=([^\r\n]*)");
@@ -526,6 +591,86 @@ namespace NeworkTool
             if (dns.Length > 0) q += "&Network.eth0.DnsServers[0]=" + dns;
             string r = await HttpGetAsync(q);
             if (r.IndexOf("OK", StringComparison.OrdinalIgnoreCase) < 0) throw new Exception("设备返回: " + Shorten(r));
+        }
+        #endregion
+
+        #region ---- 通道名称 ----
+        /// <summary>在 GetOSDs 返回里找“普通文字”类型的 OSD(通道名叠加)，日期时间类 OSD 不动。</summary>
+        private static string FindPlainOsd(string xml)
+        {
+            foreach (Match m in Regex.Matches(xml ?? "", @"<(?:\w+:)?OSDs\b[^>]*>.*?</(?:\w+:)?OSDs>", RegexOptions.Singleline | RegexOptions.IgnoreCase))
+                if (Regex.IsMatch(m.Value, @"TextString.*?Type>\s*Plain\s*<", RegexOptions.Singleline | RegexOptions.IgnoreCase) && m.Value.IndexOf("PlainText", StringComparison.OrdinalIgnoreCase) >= 0)
+                    return m.Value;
+            return null;
+        }
+
+        private async Task<string> ReadOnvifChannelAsync(string dev)
+        {
+            try
+            {
+                string blk = FindPlainOsd(await SoapAsync(mediaUrl, "<trt:GetOSDs/>"));
+                if (blk != null) return WebUtility.HtmlDecode(Rx(blk, @"PlainText>([^<]*)<"));
+            }
+            catch (UnauthorizedAccessException) { throw; }
+            catch { }
+            string sc = await SoapAsync(dev, "<tds:GetScopes/>");
+            string n = Rx(sc, @"onvif://www\.onvif\.org/name/([^<\s]+)");
+            return n.Length > 0 ? Uri.UnescapeDataString(n) : "";
+        }
+
+        /// <summary>返回提示文字(说明实际改了哪里)。</summary>
+        private async Task<string> RenameOnvifAsync(string name)
+        {
+            try
+            {
+                string blk = FindPlainOsd(await SoapAsync(mediaUrl, "<trt:GetOSDs/>"));
+                if (blk != null)
+                {
+                    string token = Rx(blk.Substring(0, blk.IndexOf('>')), @"token=""([^""]+)""");
+                    string inner = blk.Substring(blk.IndexOf('>') + 1);
+                    inner = inner.Substring(0, inner.LastIndexOf("</", StringComparison.Ordinal));
+                    inner = Regex.Replace(inner, @"<(/?)\w+:", "<$1tt:");
+                    inner = Regex.Replace(inner, @"(<tt:PlainText>)[^<]*(</tt:PlainText>)", m => m.Groups[1].Value + SecurityElement.Escape(name) + m.Groups[2].Value, RegexOptions.IgnoreCase);
+                    await SoapAsync(mediaUrl, "<trt:SetOSD><trt:OSD token=\"" + token + "\">" + inner + "</trt:OSD></trt:SetOSD>");
+                    return "画面叠加文字已修改";
+                }
+            }
+            catch (UnauthorizedAccessException) { throw; }
+            catch { /* 设备不支持 SetOSD，退回改设备名称 */ }
+            await SoapAsync(baseUrl + "/onvif/device_service", "<tds:SetScopes><tds:Scopes>onvif://www.onvif.org/name/" + Uri.EscapeDataString(name) + "</tds:Scopes></tds:SetScopes>");
+            return "该设备不支持改画面文字，已改 ONVIF 设备名称";
+        }
+
+        private async Task RenameChannelAsync()
+        {
+            string name = txtChannel.Text.Trim();
+            if (name.Length == 0) { MessageBox.Show("通道名称不能为空。", "提示"); return; }
+            if (name.Length > 32) { MessageBox.Show("通道名称太长(最多 32 个字符)。", "提示"); return; }
+            btnRename.Enabled = false; SetStatus("正在修改通道名称...", Color.DimGray);
+            try
+            {
+                string tip;
+                if (mode == "ONVIF") tip = await RenameOnvifAsync(name);
+                else if (mode == "HIK")
+                {
+                    string x = await HttpGetAsync("/ISAPI/System/Video/inputs/channels/1");
+                    if (!Regex.IsMatch(x, "<name>[^<]*</name>")) throw new Exception("设备没有返回通道名称字段");
+                    x = new Regex("(<name>)[^<]*(</name>)").Replace(x, m => m.Groups[1].Value + SecurityElement.Escape(name) + m.Groups[2].Value, 1);
+                    await HttpPutXmlAsync("/ISAPI/System/Video/inputs/channels/1", x);
+                    tip = "通道名称已修改";
+                }
+                else
+                {
+                    string r = await HttpGetAsync("/cgi-bin/configManager.cgi?action=setConfig&ChannelTitle[0].Name=" + Uri.EscapeDataString(name));
+                    if (r.IndexOf("OK", StringComparison.OrdinalIgnoreCase) < 0) throw new Exception("设备返回: " + Shorten(r));
+                    tip = "通道名称已修改";
+                }
+                SetStatus(tip, Color.DarkGreen);
+                if (vlcPlayer == null) await RefreshFrameAsync();
+            }
+            catch (UnauthorizedAccessException) { SetStatus("没有权限修改通道名称", Color.Firebrick); }
+            catch (Exception ex) { SetStatus("修改通道名称失败: " + Shorten(ex.Message), Color.Firebrick); }
+            finally { btnRename.Enabled = true; }
         }
         #endregion
 
