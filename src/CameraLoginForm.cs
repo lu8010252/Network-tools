@@ -979,27 +979,41 @@ namespace NeworkTool
             lblDevTime.Text = "设备时间: " + t + "\r\n本机时间: " + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
         }
 
+        /// <summary>只做对时本身(不碰界面)，失败抛异常。</summary>
+        private async Task DoSyncTimeAsync()
+        {
+            var now = DateTime.Now; var utc = DateTime.UtcNow;
+            if (mode == "ONVIF")
+                await SoapAsync(baseUrl + "/onvif/device_service", "<tds:SetSystemDateAndTime><tds:DateTimeType>Manual</tds:DateTimeType><tds:DaylightSavings>false</tds:DaylightSavings><tds:UTCDateTime><tt:Time><tt:Hour>" + utc.Hour + "</tt:Hour><tt:Minute>" + utc.Minute + "</tt:Minute><tt:Second>" + utc.Second + "</tt:Second></tt:Time><tt:Date><tt:Year>" + utc.Year + "</tt:Year><tt:Month>" + utc.Month + "</tt:Month><tt:Day>" + utc.Day + "</tt:Day></tt:Date></tds:UTCDateTime></tds:SetSystemDateAndTime>");
+            else if (mode == "HIK")
+            {
+                string x = await HttpGetAsync("/ISAPI/System/time");
+                x = Regex.Replace(x, @"(<timeMode>)[^<]*(</timeMode>)", "${1}manual${2}", RegexOptions.IgnoreCase);
+                string lt = DateTimeOffset.Now.ToString("yyyy-MM-ddTHH:mm:sszzz");
+                x = Regex.Replace(x, @"(<localTime>)[^<]*(</localTime>)", "${1}" + lt + "${2}", RegexOptions.IgnoreCase);
+                await HttpPutXmlAsync("/ISAPI/System/time", x);
+            }
+            else
+            {
+                string r = await HttpGetAsync("/cgi-bin/global.cgi?action=setCurrentTime&time=" + Uri.EscapeDataString(now.ToString("yyyy-MM-dd HH:mm:ss")));
+                if (r.IndexOf("OK", StringComparison.OrdinalIgnoreCase) < 0) throw new Exception("设备返回: " + Shorten(r));
+            }
+        }
+
+        /// <summary>批量对时用：需先 HeadlessLoginAsync 成功。返回空串表示成功，否则是失败原因。</summary>
+        public async Task<string> HeadlessSyncTimeAsync()
+        {
+            try { await DoSyncTimeAsync(); return ""; }
+            catch (UnauthorizedAccessException) { return "没有权限修改时间"; }
+            catch (Exception ex) { return Shorten(ex.Message); }
+        }
+
         private async Task SyncTimeAsync()
         {
             btnSyncTime.Enabled = false; SetStatus("正在同步时间...", Color.DimGray);
             try
             {
-                var now = DateTime.Now; var utc = DateTime.UtcNow;
-                if (mode == "ONVIF")
-                    await SoapAsync(baseUrl + "/onvif/device_service", "<tds:SetSystemDateAndTime><tds:DateTimeType>Manual</tds:DateTimeType><tds:DaylightSavings>false</tds:DaylightSavings><tds:UTCDateTime><tt:Time><tt:Hour>" + utc.Hour + "</tt:Hour><tt:Minute>" + utc.Minute + "</tt:Minute><tt:Second>" + utc.Second + "</tt:Second></tt:Time><tt:Date><tt:Year>" + utc.Year + "</tt:Year><tt:Month>" + utc.Month + "</tt:Month><tt:Day>" + utc.Day + "</tt:Day></tt:Date></tds:UTCDateTime></tds:SetSystemDateAndTime>");
-                else if (mode == "HIK")
-                {
-                    string x = await HttpGetAsync("/ISAPI/System/time");
-                    x = Regex.Replace(x, @"(<timeMode>)[^<]*(</timeMode>)", "${1}manual${2}", RegexOptions.IgnoreCase);
-                    string lt = DateTimeOffset.Now.ToString("yyyy-MM-ddTHH:mm:sszzz");
-                    x = Regex.Replace(x, @"(<localTime>)[^<]*(</localTime>)", "${1}" + lt + "${2}", RegexOptions.IgnoreCase);
-                    await HttpPutXmlAsync("/ISAPI/System/time", x);
-                }
-                else
-                {
-                    string r = await HttpGetAsync("/cgi-bin/global.cgi?action=setCurrentTime&time=" + Uri.EscapeDataString(now.ToString("yyyy-MM-dd HH:mm:ss")));
-                    if (r.IndexOf("OK", StringComparison.OrdinalIgnoreCase) < 0) throw new Exception("设备返回: " + Shorten(r));
-                }
+                await DoSyncTimeAsync();
                 SetStatus("时间已同步", Color.DarkGreen);
                 await Task.Delay(500); await ReadTimeAsync();
             }

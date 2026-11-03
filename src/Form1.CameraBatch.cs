@@ -25,7 +25,7 @@ namespace NeworkTool
             if (targets.Count == 0) { MessageBox.Show("列表里还没有设备，请先扫描。", "提示"); return; }
 
             var f = new Form { Text = $"批量登录 - {targets.Count} 台设备", Size = new Size(900, 560), StartPosition = FormStartPosition.CenterParent, Font = fontNormal };
-            var pnl = new Panel { Dock = DockStyle.Top, Height = 74 };
+            var pnl = new Panel { Dock = DockStyle.Top, Height = 84 };
             pnl.Controls.Add(new Label { Text = "用户名:", Location = new Point(12, 14), AutoSize = true });
             var txtU = new TextBox { Location = new Point(62, 10), Width = 110, Text = "admin" };
             pnl.Controls.Add(txtU);
@@ -37,8 +37,9 @@ namespace NeworkTool
             pnl.Controls.Add(txtP2);
             var btnGo = new Button { Text = "开始批量登录", Location = new Point(615, 8), Size = new Size(110, 28) };
             var btnStopB = new Button { Text = "停止", Location = new Point(733, 8), Size = new Size(60, 28), Enabled = false };
-            pnl.Controls.Add(btnGo); pnl.Controls.Add(btnStopB);
-            var lblTip = new Label { Text = "每台依次试「密码」「备用密码」；成功后双击某一行可直接进入预览/改 IP。", Location = new Point(12, 46), AutoSize = true, ForeColor = Color.DimGray };
+            var btnSync = new Button { Text = "⏱ 批量同步时间", Location = new Point(615, 40), Size = new Size(178, 28), Enabled = false };
+            pnl.Controls.Add(btnGo); pnl.Controls.Add(btnStopB); pnl.Controls.Add(btnSync);
+            var lblTip = new Label { Text = "每台依次试「密码」「备用密码」；成功后双击某一行进入预览/改 IP，或点「批量同步时间」把登录成功的设备校准为本机时间。", Location = new Point(12, 46), MaximumSize = new Size(590, 0), AutoSize = true, ForeColor = Color.DimGray };
             pnl.Controls.Add(lblTip);
 
             var lv = new ListView { Dock = DockStyle.Fill, View = View.Details, FullRowSelect = true, GridLines = true, Font = new Font("Consolas", 9.5F) };
@@ -116,9 +117,55 @@ namespace NeworkTool
                     }).ToList();
                     try { await Task.WhenAll(tasks); } catch { }
                 }
-                if (!f.IsDisposed) { btnGo.Enabled = true; btnStopB.Enabled = false; }
+                if (!f.IsDisposed) { btnGo.Enabled = true; btnStopB.Enabled = false; btnSync.Enabled = creds.Count > 0; }
             };
             btnStopB.Click += (s, e) => { cts?.Cancel(); };
+
+            // 批量同步时间：只处理登录成功的设备，用各自登录成功的密码
+            btnSync.Click += async (s, e) =>
+            {
+                var list = targets.Where(d => creds.ContainsKey(d.Ip)).ToList();
+                if (list.Count == 0) return;
+                if (MessageBox.Show($"把 {list.Count} 台已登录成功的设备时间校准为本机当前时间({DateTime.Now:yyyy-MM-dd HH:mm:ss})？\r\n设备会被改为手动对时。", "确认批量同步时间", MessageBoxButtons.OKCancel, MessageBoxIcon.Question) != DialogResult.OK) return;
+                btnSync.Enabled = false; btnGo.Enabled = false; btnStopB.Enabled = true;
+                cts = new CancellationTokenSource();
+                int ok = 0, done = 0;
+                using (var sem = new SemaphoreSlim(6))
+                {
+                    var tasks = list.Select(async d =>
+                    {
+                        await sem.WaitAsync();
+                        try
+                        {
+                            if (cts.IsCancellationRequested) return;
+                            f.Invoke(new Action(() => { rows[d.Ip].SubItems[3].Text = "对时中..."; }));
+                            string err = "登录失败";
+                            (string u, string p) c; lock (creds) c = creds[d.Ip];
+                            using (var dev = new CameraLoginForm(d.Ip, d.Brand, d.WebPort, d.OpenPorts))
+                            {
+                                bool r = false;
+                                try { r = await dev.HeadlessLoginAsync(c.u, c.p); } catch { }
+                                if (r) err = await dev.HeadlessSyncTimeAsync();
+                            }
+                            bool success = err.Length == 0;
+                            if (success) Interlocked.Increment(ref ok);
+                            Interlocked.Increment(ref done);
+                            f.Invoke(new Action(() =>
+                            {
+                                var it = rows[d.Ip];
+                                it.SubItems[3].Text = success ? "已对时" : "对时失败";
+                                it.SubItems[4].Text = success ? "已同步为 " + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") : err;
+                                it.ForeColor = success ? colorAccentG : Color.Firebrick;
+                                f.Text = $"批量同步时间 - 成功 {ok} / 已完成 {done} / 共 {list.Count} 台";
+                            }));
+                        }
+                        catch { }
+                        finally { sem.Release(); }
+                    }).ToList();
+                    try { await Task.WhenAll(tasks); } catch { }
+                }
+                if (!f.IsDisposed) { btnSync.Enabled = true; btnGo.Enabled = true; btnStopB.Enabled = false; }
+            };
             f.FormClosing += (s, e) => { cts?.Cancel(); };
             f.ShowDialog(this);
             creds.Clear();
