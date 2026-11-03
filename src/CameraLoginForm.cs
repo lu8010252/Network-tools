@@ -95,6 +95,7 @@ namespace NeworkTool
             Font = fNormal;
 
             var root = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 2, Padding = new Padding(10) };
+            root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
             root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             root.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
             Controls.Add(root);
@@ -125,7 +126,8 @@ namespace NeworkTool
             flow.Controls.Add(txtPass);
             btnLogin = new Button { Text = "登录", AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, MinimumSize = new Size(80, 30), Margin = new Padding(0, 2, 18, 0), Font = fBold };
             flow.Controls.Add(btnLogin);
-            lblStatus = new Label { Text = "请输入账号密码后登录", AutoSize = true, Margin = new Padding(0, 8, 0, 0), ForeColor = Color.DimGray, Font = fNormal };
+            flow.SetFlowBreak(btnLogin, true);
+            lblStatus = new Label { Text = "请输入账号密码后登录", AutoSize = true, MaximumSize = new Size(900, 0), Margin = new Padding(0, 8, 0, 0), ForeColor = Color.DimGray, Font = fNormal };
             flow.Controls.Add(lblStatus);
             top.Controls.Add(flow);
             root.Controls.Add(top, 0, 0);
@@ -133,7 +135,7 @@ namespace NeworkTool
             // ---- 主区域：左 预览+信息，右 设置 ----
             var main = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 1, Margin = new Padding(0, 8, 0, 0) };
             main.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
-            main.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 390F));
+            main.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 410F));
             root.Controls.Add(main, 0, 1);
 
             var left = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 3, Margin = new Padding(0, 0, 10, 0) };
@@ -157,12 +159,44 @@ namespace NeworkTool
             txtInfo = new TextBox { Dock = DockStyle.Fill, Multiline = true, ReadOnly = true, ScrollBars = ScrollBars.Vertical, Font = fNormal, Margin = new Padding(0) };
             left.Controls.Add(txtInfo, 0, 2);
 
-            var right = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.TopDown, WrapContents = false, AutoScroll = true, Margin = new Padding(0) };
-            main.Controls.Add(right, 1, 0);
+            // 右侧：分页(网络 / 画面 / 维护)，功能多了用分页放，窗口不会被撑坏
+            var tabs = new TabControl { Dock = DockStyle.Fill, Font = fNormal, Margin = new Padding(0) };
+            Func<string, FlowLayoutPanel> addPage = title =>
+            {
+                var pg = new TabPage(title) { Padding = new Padding(6), UseVisualStyleBackColor = true };
+                var fl = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.TopDown, WrapContents = false, AutoScroll = true };
+                pg.Controls.Add(fl); tabs.TabPages.Add(pg); return fl;
+            };
+            var pageNet = addPage("网络");
+            var pageVideo = addPage("画面");
+            var pageMaint = addPage("维护");
+            main.Controls.Add(tabs, 1, 0);
 
-            // 网络设置
-            var net = new GroupBox { Text = " 网络设置(登录后可用) ", Width = 365, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, Font = fBold, Padding = new Padding(8, 4, 8, 8), Margin = new Padding(0, 0, 0, 10) };
-            var nt = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink };
+            Func<string, Control, GroupBox> mkGroup = (title, content) =>
+            {
+                var g = new GroupBox { Text = " " + title + " ", Width = 372, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, Font = fBold, Padding = new Padding(8, 4, 8, 8), Margin = new Padding(0, 0, 0, 10) };
+                content.Dock = DockStyle.Fill; g.Controls.Add(content); return g;
+            };
+            Func<FlowLayoutPanel> mkCol = () => new FlowLayoutPanel { FlowDirection = FlowDirection.TopDown, WrapContents = false, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink };
+            Func<FlowLayoutPanel> mkRow = () => new FlowLayoutPanel { FlowDirection = FlowDirection.LeftToRight, WrapContents = true, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, Margin = new Padding(0) };
+            Func<string, int, bool, Button> mkBtn = (text, w, bold) =>
+            {
+                var b = new Button { Text = text, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, MinimumSize = new Size(w, 32), Enabled = false, Font = bold ? fBold : fNormal, Margin = new Padding(0, 0, 8, 6) };
+                loginControls.Add(b); return b;
+            };
+            Func<string, Label> mkTip = t => new Label { Text = t, AutoSize = true, MaximumSize = new Size(340, 0), ForeColor = Color.DimGray, Font = fNormal, Margin = new Padding(0, 4, 0, 4) };
+            Func<string, CheckBox> mkChk = t => { var c = new CheckBox { Text = t, AutoSize = true, Enabled = false, Font = fNormal, Margin = new Padding(0, 4, 0, 4) }; loginControls.Add(c); return c; };
+            Func<TableLayoutPanel> mkTable = () => { var t = new TableLayoutPanel { ColumnCount = 2, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink }; t.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize)); t.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F)); return t; };
+            Action<TableLayoutPanel, string, Control> addTblRow = (t, label, ctl) =>
+            {
+                int row = t.RowCount; t.RowCount = row + 1; t.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+                t.Controls.Add(new Label { Text = label, AutoSize = true, Anchor = AnchorStyles.Left, Margin = new Padding(0, 6, 8, 6), Font = fNormal }, 0, row);
+                ctl.Anchor = AnchorStyles.Left | AnchorStyles.Right; ctl.Margin = new Padding(0, 4, 0, 4);
+                t.Controls.Add(ctl, 1, row);
+            };
+
+            // ===== 网络页 =====
+            var nt = new TableLayoutPanel { ColumnCount = 2, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink };
             nt.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
             nt.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
             int r = 0;
@@ -173,31 +207,124 @@ namespace NeworkTool
                 var tb = new TextBox { Anchor = AnchorStyles.Left | AnchorStyles.Right, Width = 230, Margin = new Padding(0, 4, 0, 4), Font = fNormal, Enabled = false };
                 nt.Controls.Add(tb, 1, r); r++; return tb;
             };
+            nt.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            chkDhcp = mkChk("自动获取 IP (DHCP)");
+            nt.Controls.Add(chkDhcp, 0, r); nt.SetColumnSpan(chkDhcp, 2); r++;
             txtNewIp = addRow("IP 地址:");
             txtMask = addRow("子网掩码:");
             txtGw = addRow("默认网关:");
             txtDns = addRow("DNS:");
             nt.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-            var tip = new Label { Text = "改 IP 会改为静态地址；应用后设备会断开，需要用新 IP 重新扫描/登录。请确认新 IP 不冲突。", AutoSize = true, MaximumSize = new Size(320, 0), ForeColor = Color.DimGray, Margin = new Padding(0, 6, 0, 6), Font = fNormal };
+            var tip = mkTip("改 IP 会改为静态地址(勾选 DHCP 则改回自动获取)；应用后设备会断开，需要用新 IP 重新扫描/登录。请确认新 IP 不冲突。");
             nt.Controls.Add(tip, 0, r); nt.SetColumnSpan(tip, 2); r++;
             nt.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-            var nbtn = new FlowLayoutPanel { AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, Margin = new Padding(0) };
-            btnApply = new Button { Text = "应用修改", AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, MinimumSize = new Size(100, 32), Enabled = false, Font = fBold, Margin = new Padding(0, 0, 10, 0) };
-            btnReboot = new Button { Text = "重启设备", AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, MinimumSize = new Size(100, 32), Enabled = false, Font = fNormal, Margin = new Padding(0) };
-            nbtn.Controls.Add(btnApply); nbtn.Controls.Add(btnReboot);
-            nt.Controls.Add(nbtn, 0, r); nt.SetColumnSpan(nbtn, 2);
-            net.Controls.Add(nt);
-            right.Controls.Add(net);
+            btnApply = mkBtn("应用修改", 100, true);
+            nt.Controls.Add(btnApply, 0, r); nt.SetColumnSpan(btnApply, 2);
+            pageNet.Controls.Add(mkGroup("网络设置(登录后可用)", nt));
 
-            // 通道名称
-            var ch = new GroupBox { Text = " 通道名称(画面上显示的名字) ", Width = 365, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, Font = fBold, Padding = new Padding(8, 4, 8, 8), Margin = new Padding(0) };
-            var ct = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.TopDown, WrapContents = false, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink };
-            txtChannel = new TextBox { Width = 330, Enabled = false, Font = fNormal, Margin = new Padding(0, 4, 0, 6) };
-            btnRename = new Button { Text = "修改通道名称", AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, MinimumSize = new Size(120, 32), Enabled = false, Font = fBold, Margin = new Padding(0, 0, 0, 6) };
-            var chTip = new Label { Text = "海康/大华改通道名；ONVIF 设备改画面叠加文字，设备不支持时改设备名称。修改后画面标题会更新。", AutoSize = true, MaximumSize = new Size(330, 0), ForeColor = Color.DimGray, Font = fNormal };
-            ct.Controls.Add(txtChannel); ct.Controls.Add(btnRename); ct.Controls.Add(chTip);
-            ch.Controls.Add(ct);
-            right.Controls.Add(ch);
+            var ct = mkCol();
+            txtChannel = new TextBox { Width = 340, Enabled = false, Font = fNormal, Margin = new Padding(0, 4, 0, 6) };
+            btnRename = mkBtn("修改通道名称", 120, true);
+            ct.Controls.Add(txtChannel); ct.Controls.Add(btnRename);
+            ct.Controls.Add(mkTip("海康/大华改通道名；ONVIF 设备改画面叠加文字，设备不支持时改设备名称。修改后画面标题会更新。"));
+            pageNet.Controls.Add(mkGroup("通道名称(画面上显示的名字)", ct));
+
+            // ===== 画面页 =====
+            var sc = mkCol();
+            btnSnap = mkBtn("📷 抓拍保存...", 120, true);
+            sc.Controls.Add(btnSnap);
+            sc.Controls.Add(mkTip("把当前画面存成 JPG 图片(优先取设备快照，没有快照时抓当前视频帧)。"));
+            pageVideo.Controls.Add(mkGroup("抓拍", sc));
+
+            var oc = mkCol();
+            chkOsdName = mkChk("画面上显示通道名称");
+            chkOsdTime = mkChk("画面上显示日期时间");
+            btnOsdApply = mkBtn("应用 OSD 设置", 120, true);
+            oc.Controls.Add(chkOsdName); oc.Controls.Add(chkOsdTime); oc.Controls.Add(btnOsdApply);
+            oc.Controls.Add(mkTip("仅海康 / 大华可用；ONVIF 设备暂不支持。"));
+            pageVideo.Controls.Add(mkGroup("画面叠加(OSD)", oc));
+
+            var st = mkTable();
+            txtEnc = new TextBox { ReadOnly = true, Font = fNormal };
+            txtRes = new TextBox { ReadOnly = true, Font = fNormal };
+            numFps = new NumericUpDown { Minimum = 1, Maximum = 60, Value = 25, Width = 110, Enabled = false, Font = fNormal };
+            numBr = new NumericUpDown { Minimum = 32, Maximum = 32768, Increment = 128, Value = 4096, Width = 110, Enabled = false, Font = fNormal };
+            loginControls.Add(numFps); loginControls.Add(numBr);
+            addTblRow(st, "编码:", txtEnc);
+            addTblRow(st, "分辨率:", txtRes);
+            addTblRow(st, "帧率(fps):", numFps);
+            addTblRow(st, "码率(kbps):", numBr);
+            btnStreamApply = mkBtn("应用码流设置", 120, true);
+            int sr = st.RowCount; st.RowCount = sr + 1; st.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            st.Controls.Add(btnStreamApply, 0, sr); st.SetColumnSpan(btnStreamApply, 2);
+            int sr2 = st.RowCount; st.RowCount = sr2 + 1; st.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            var stTip = mkTip("显示主码流参数；海康 / 大华可改帧率和码率，ONVIF 仅显示。修改后编码器会重新初始化，画面可能中断几秒。");
+            st.Controls.Add(stTip, 0, sr2); st.SetColumnSpan(stTip, 2);
+            pageVideo.Controls.Add(mkGroup("码流(主码流)", st));
+
+            var pad = new TableLayoutPanel { ColumnCount = 3, RowCount = 3, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink };
+            Func<string, string, Button> mkPtz = (text, dir) =>
+            {
+                var b = new Button { Text = text, Size = new Size(86, 34), Enabled = false, Font = fNormal, Margin = new Padding(2) };
+                loginControls.Add(b);
+                b.MouseDown += async (s, e) => await PtzSafeAsync(dir, true);
+                b.MouseUp += async (s, e) => await PtzSafeAsync(dir, false);
+                return b;
+            };
+            var ptzStop = new Button { Text = "■", Size = new Size(86, 34), Enabled = false, Font = fNormal, Margin = new Padding(2) };
+            loginControls.Add(ptzStop);
+            ptzStop.Click += async (s, e) => await PtzSafeAsync("S", false);
+            pad.Controls.Add(mkPtz("↑", "U"), 1, 0); pad.Controls.Add(mkPtz("变倍＋", "I"), 2, 0);
+            pad.Controls.Add(mkPtz("←", "L"), 0, 1); pad.Controls.Add(ptzStop, 1, 1); pad.Controls.Add(mkPtz("→", "R"), 2, 1);
+            pad.Controls.Add(mkPtz("↓", "D"), 1, 2); pad.Controls.Add(mkPtz("变倍－", "O"), 2, 2);
+            var pc = mkCol();
+            pc.Controls.Add(pad);
+            pc.Controls.Add(mkTip("按住方向键转动，松开即停；只有带云台/变焦的摄像机才有效。"));
+            pageVideo.Controls.Add(mkGroup("云台 / 变焦", pc));
+
+            // ===== 维护页 =====
+            var tc = mkCol();
+            lblDevTime = new Label { Text = "设备时间: (登录后显示)", AutoSize = true, MaximumSize = new Size(340, 0), Font = fNormal, Margin = new Padding(0, 4, 0, 6) };
+            var tRow = mkRow();
+            btnSyncTime = mkBtn("同步为本机时间", 120, true);
+            btnReadTime = mkBtn("刷新", 70, false);
+            tRow.Controls.Add(btnSyncTime); tRow.Controls.Add(btnReadTime);
+            tc.Controls.Add(lblDevTime); tc.Controls.Add(tRow);
+            tc.Controls.Add(mkTip("录像时间不对时一键校准；同步会把设备改为手动对时。"));
+            pageMaint.Controls.Add(mkGroup("设备时间", tc));
+
+            var pw = mkTable();
+            txtNewPwd = new TextBox { UseSystemPasswordChar = true, Font = fNormal };
+            txtNewPwd2 = new TextBox { UseSystemPasswordChar = true, Font = fNormal };
+            loginControls.Add(txtNewPwd); loginControls.Add(txtNewPwd2);
+            addTblRow(pw, "新密码:", txtNewPwd);
+            addTblRow(pw, "再输一次:", txtNewPwd2);
+            btnPwd = mkBtn("修改密码", 100, true);
+            int pr = pw.RowCount; pw.RowCount = pr + 1; pw.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            pw.Controls.Add(btnPwd, 0, pr); pw.SetColumnSpan(btnPwd, 2);
+            int pr2 = pw.RowCount; pw.RowCount = pr2 + 1; pw.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            var pwTip = mkTip("修改当前登录账号的密码，成功后自动用新密码重新登录。海康新固件对密码强度有要求(8 位以上、含多种字符)。");
+            pw.Controls.Add(pwTip, 0, pr2); pw.SetColumnSpan(pwTip, 2);
+            pageMaint.Controls.Add(mkGroup("修改登录密码", pw));
+
+            var oc2 = mkRow();
+            btnReboot = mkBtn("重启设备", 100, false);
+            btnCopyInfo = mkBtn("复制设备信息", 110, false);
+            btnOpenWeb = mkBtn("打开 Web 页面", 110, false);
+            btnCopyRtspAuth = mkBtn("复制 RTSP(含账号密码)", 160, false);
+            oc2.Controls.Add(btnReboot); oc2.Controls.Add(btnCopyInfo); oc2.Controls.Add(btnOpenWeb); oc2.Controls.Add(btnCopyRtspAuth);
+            pageMaint.Controls.Add(mkGroup("设备操作", oc2));
+
+            chkDhcp.CheckedChanged += (s, e) => UpdateNetFields();
+            btnSnap.Click += async (s, e) => await SnapshotAsync();
+            btnOsdApply.Click += async (s, e) => await ApplyOsdAsync();
+            btnStreamApply.Click += async (s, e) => await ApplyStreamAsync();
+            btnSyncTime.Click += async (s, e) => await SyncTimeAsync();
+            btnReadTime.Click += async (s, e) => { try { await ReadTimeAsync(); } catch (Exception ex) { SetStatus("读取时间失败: " + Shorten(ex.Message), Color.Firebrick); } };
+            btnPwd.Click += async (s, e) => await ChangePasswordAsync();
+            btnCopyInfo.Click += (s, e) => { try { Clipboard.SetText(txtInfo.Text); SetStatus("设备信息已复制", Color.DarkGreen); } catch { } };
+            btnOpenWeb.Click += (s, e) => { try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(baseUrl) { UseShellExecute = true }); } catch (Exception ex) { SetStatus("打开失败: " + Shorten(ex.Message), Color.Firebrick); } };
+            btnCopyRtspAuth.Click += (s, e) => { try { Clipboard.SetText(WithCreds(rtspUrl ?? "", user, pass)); SetStatus("已复制 RTSP 地址(含账号密码，请勿外传)", Color.DarkGreen); } catch { } };
 
             timer = new System.Windows.Forms.Timer { Interval = 1000 };
             timer.Tick += async (s, e) => { if (chkLive.Checked) await RefreshFrameAsync(); };
@@ -215,10 +342,13 @@ namespace NeworkTool
         private void SetStatus(string text, Color color) { lblStatus.Text = text; lblStatus.ForeColor = color; }
         private void SetLoggedIn(bool on)
         {
-            txtNewIp.Enabled = txtMask.Enabled = txtGw.Enabled = txtDns.Enabled = on;
-            btnApply.Enabled = btnReboot.Enabled = chkLive.Enabled = btnRefresh.Enabled = on;
+            foreach (var c in loginControls) c.Enabled = on;
             txtChannel.Enabled = btnRename.Enabled = on;
+            chkLive.Enabled = btnRefresh.Enabled = on;
             btnCopyRtsp.Enabled = on && !string.IsNullOrEmpty(rtspUrl);
+            btnCopyRtspAuth.Enabled = on && !string.IsNullOrEmpty(rtspUrl);
+            btnSnap.Enabled = on;
+            if (on) UpdateNetFields(); else txtNewIp.Enabled = txtMask.Enabled = txtGw.Enabled = txtDns.Enabled = false;
         }
         #endregion
 
@@ -282,6 +412,8 @@ namespace NeworkTool
             SetStatus($"已登录 ({mode} @ {baseUrl})", Color.DarkGreen);
             SetLoggedIn(true);
             if (Headless) return;
+            await LoadExtrasAsync();
+            SetLoggedIn(true);
             if (!TryStartVideo())
             {
                 await RefreshFrameAsync();
@@ -701,6 +833,7 @@ namespace NeworkTool
         private async Task ApplyAsync()
         {
             string nip = txtNewIp.Text.Trim(), mask = txtMask.Text.Trim(), gw = txtGw.Text.Trim(), dns = txtDns.Text.Trim();
+            if (chkDhcp.Checked) { await ApplyDhcpAsync(); return; }
             if (!ValidIp(nip) || !ValidIp(mask) || (gw.Length > 0 && !ValidIp(gw)) || (dns.Length > 0 && !ValidIp(dns)))
             { MessageBox.Show("IP / 掩码 / 网关 / DNS 格式不正确（网关、DNS 可留空）。", "提示"); return; }
             if (MessageBox.Show($"确定把设备 {ip} 改为静态地址：\r\nIP: {nip}\r\n掩码: {mask}\r\n网关: {(gw.Length > 0 ? gw : "(不改)")}\r\nDNS: {(dns.Length > 0 ? dns : "(不改)")}\r\n\r\n应用后设备会断开连接。", "确认修改", MessageBoxButtons.OKCancel, MessageBoxIcon.Warning) != DialogResult.OK) return;
@@ -725,6 +858,38 @@ namespace NeworkTool
             finally { btnApply.Enabled = true; }
         }
 
+        private async Task ApplyDhcpAsync()
+        {
+            if (MessageBox.Show($"确定把设备 {ip} 改为自动获取 IP(DHCP)吗？\r\n应用后设备会断开，新地址需要到路由器里查看或重新扫描。", "确认修改", MessageBoxButtons.OKCancel, MessageBoxIcon.Warning) != DialogResult.OK) return;
+            timer.Stop(); btnApply.Enabled = false; SetStatus("正在应用...", Color.DimGray);
+            try
+            {
+                if (mode == "ONVIF")
+                {
+                    if (string.IsNullOrEmpty(ifaceToken)) throw new Exception("没有读到网卡标识");
+                    await SoapAsync(baseUrl + "/onvif/device_service", "<tds:SetNetworkInterfaces><tds:InterfaceToken>" + ifaceToken + "</tds:InterfaceToken><tds:NetworkInterface><tt:Enabled>true</tt:Enabled><tt:IPv4><tt:Enabled>true</tt:Enabled><tt:DHCP>true</tt:DHCP></tt:IPv4></tds:NetworkInterface></tds:SetNetworkInterfaces>");
+                }
+                else if (mode == "HIK")
+                {
+                    string x = await HttpGetAsync("/ISAPI/System/Network/interfaces/1");
+                    x = Regex.Replace(x, @"(<addressingType>)[^<]*(</addressingType>)", "${1}dynamic${2}", RegexOptions.IgnoreCase);
+                    await HttpPutXmlAsync("/ISAPI/System/Network/interfaces/1", x);
+                }
+                else
+                {
+                    string r = await HttpGetAsync("/cgi-bin/configManager.cgi?action=setConfig&Network.eth0.DhcpEnable=true");
+                    if (r.IndexOf("OK", StringComparison.OrdinalIgnoreCase) < 0) throw new Exception("设备返回: " + Shorten(r));
+                }
+                SetStatus("已提交 DHCP 设置", Color.DarkGreen);
+                MessageBox.Show("已提交。设备会重新获取地址，请到路由器查看新 IP 或回到扫描页重新扫描。", "完成");
+            }
+            catch (Exception ex) when (ex is TaskCanceledException || ex is HttpRequestException || ex is IOException)
+            { SetStatus("已提交(设备已断开，可能已生效)", Color.DarkGreen); }
+            catch (UnauthorizedAccessException) { SetStatus("没有权限修改网络设置", Color.Firebrick); }
+            catch (Exception ex) { SetStatus("修改失败: " + Shorten(ex.Message), Color.Firebrick); }
+            finally { btnApply.Enabled = true; }
+        }
+
         private async Task RebootAsync()
         {
             if (MessageBox.Show($"确定要重启设备 {ip} 吗？重启期间画面会中断。", "确认重启", MessageBoxButtons.OKCancel, MessageBoxIcon.Warning) != DialogResult.OK) return;
@@ -737,6 +902,299 @@ namespace NeworkTool
                 SetStatus("已发送重启指令", Color.DarkGreen);
             }
             catch (Exception ex) { SetStatus("重启失败: " + Shorten(ex.Message), Color.Firebrick); }
+        }
+        #endregion
+
+        #region ---- 扩展功能：时间 / 密码 / OSD / 码流 / 云台 / 抓拍 ----
+        private readonly List<Control> loginControls = new List<Control>();
+        private CheckBox chkDhcp, chkOsdName, chkOsdTime;
+        private Button btnSnap, btnOsdApply, btnStreamApply, btnSyncTime, btnReadTime, btnPwd, btnCopyInfo, btnOpenWeb, btnCopyRtspAuth;
+        private TextBox txtEnc, txtRes, txtNewPwd, txtNewPwd2;
+        private NumericUpDown numFps, numBr;
+        private Label lblDevTime;
+        private string ptzUrl, lastPtz;
+        private const string NsPtz = "http://www.onvif.org/ver20/ptz/wsdl";
+
+        private void UpdateNetFields()
+        {
+            bool st = !chkDhcp.Checked && mode != null;
+            txtNewIp.Enabled = txtMask.Enabled = txtGw.Enabled = txtDns.Enabled = st;
+        }
+
+        /// <summary>登录成功后读取时间、OSD、码流、DHCP 状态；任何一项失败都不影响其它功能。</summary>
+        private async Task LoadExtrasAsync()
+        {
+            ptzUrl = null; lastPtz = null;
+            txtEnc.Text = txtRes.Text = ""; chkOsdName.Checked = chkOsdTime.Checked = false;
+            try { await ReadTimeAsync(); } catch (UnauthorizedAccessException) { } catch { lblDevTime.Text = "设备时间: 读取失败"; }
+            try { await ReadOsdAsync(); } catch { }
+            try { await ReadStreamAsync(); } catch { }
+            if (mode == "ONVIF")
+            {
+                try
+                {
+                    string caps = await SoapAsync(baseUrl + "/onvif/device_service", "<tds:GetCapabilities><tds:Category>All</tds:Category></tds:GetCapabilities>");
+                    string p = Rx(caps, @"<(?:\w+:)?PTZ>\s*<(?:\w+:)?XAddr>([^<]+)<");
+                    if (p.Length > 0) ptzUrl = FixHost(p);
+                }
+                catch { }
+            }
+            UpdateNetFields();
+        }
+
+        // ---------- 抓拍 ----------
+        private async Task SnapshotAsync()
+        {
+            using (var dlg = new SaveFileDialog { Filter = "JPG 图片|*.jpg", FileName = $"{ip}_{DateTime.Now:yyyyMMdd_HHmmss}.jpg" })
+            {
+                if (dlg.ShowDialog(this) != DialogResult.OK) return;
+                try
+                {
+                    if (!string.IsNullOrEmpty(snapshotUrl))
+                    {
+                        File.WriteAllBytes(dlg.FileName, await HttpGetBytesAsync(snapshotUrl));
+                    }
+                    else if (vlcPlayer != null && vlcPlayer.TakeSnapshot(0, dlg.FileName, 0, 0)) { }
+                    else throw new Exception("设备没有快照地址，视频也未播放");
+                    SetStatus("已保存: " + dlg.FileName, Color.DarkGreen);
+                }
+                catch (Exception ex) { SetStatus("抓拍失败: " + Shorten(ex.Message), Color.Firebrick); }
+            }
+        }
+
+        // ---------- 设备时间 ----------
+        private async Task ReadTimeAsync()
+        {
+            string t = "";
+            if (mode == "ONVIF")
+            {
+                string x = await SoapAsync(baseUrl + "/onvif/device_service", "<tds:GetSystemDateAndTime/>", false);
+                string utc = Rx(x, @"UTCDateTime>(.*?)</[^>]*UTCDateTime>"); if (utc.Length == 0) utc = x;
+                var d = new DateTime(int.Parse(Rx(utc, @"Year>(\d+)<")), int.Parse(Rx(utc, @"Month>(\d+)<")), int.Parse(Rx(utc, @"Day>(\d+)<")),
+                    int.Parse(Rx(utc, @"Hour>(\d+)<")), int.Parse(Rx(utc, @"Minute>(\d+)<")), int.Parse(Rx(utc, @"Second>(\d+)<")), DateTimeKind.Utc);
+                t = d.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss") + " (按本机时区换算)";
+            }
+            else if (mode == "HIK") t = Rx(await HttpGetAsync("/ISAPI/System/time"), @"localTime>([^<]*)<").Replace("T", " ");
+            else t = Rx(await HttpGetAsync("/cgi-bin/global.cgi?action=getCurrentTime"), @"result=([^\r\n]*)");
+            lblDevTime.Text = "设备时间: " + t + "\r\n本机时间: " + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
+        }
+
+        private async Task SyncTimeAsync()
+        {
+            btnSyncTime.Enabled = false; SetStatus("正在同步时间...", Color.DimGray);
+            try
+            {
+                var now = DateTime.Now; var utc = DateTime.UtcNow;
+                if (mode == "ONVIF")
+                    await SoapAsync(baseUrl + "/onvif/device_service", "<tds:SetSystemDateAndTime><tds:DateTimeType>Manual</tds:DateTimeType><tds:DaylightSavings>false</tds:DaylightSavings><tds:UTCDateTime><tt:Time><tt:Hour>" + utc.Hour + "</tt:Hour><tt:Minute>" + utc.Minute + "</tt:Minute><tt:Second>" + utc.Second + "</tt:Second></tt:Time><tt:Date><tt:Year>" + utc.Year + "</tt:Year><tt:Month>" + utc.Month + "</tt:Month><tt:Day>" + utc.Day + "</tt:Day></tt:Date></tds:UTCDateTime></tds:SetSystemDateAndTime>");
+                else if (mode == "HIK")
+                {
+                    string x = await HttpGetAsync("/ISAPI/System/time");
+                    x = Regex.Replace(x, @"(<timeMode>)[^<]*(</timeMode>)", "${1}manual${2}", RegexOptions.IgnoreCase);
+                    string lt = DateTimeOffset.Now.ToString("yyyy-MM-ddTHH:mm:sszzz");
+                    x = Regex.Replace(x, @"(<localTime>)[^<]*(</localTime>)", "${1}" + lt + "${2}", RegexOptions.IgnoreCase);
+                    await HttpPutXmlAsync("/ISAPI/System/time", x);
+                }
+                else
+                {
+                    string r = await HttpGetAsync("/cgi-bin/global.cgi?action=setCurrentTime&time=" + Uri.EscapeDataString(now.ToString("yyyy-MM-dd HH:mm:ss")));
+                    if (r.IndexOf("OK", StringComparison.OrdinalIgnoreCase) < 0) throw new Exception("设备返回: " + Shorten(r));
+                }
+                SetStatus("时间已同步", Color.DarkGreen);
+                await Task.Delay(500); await ReadTimeAsync();
+            }
+            catch (UnauthorizedAccessException) { SetStatus("没有权限修改时间", Color.Firebrick); }
+            catch (Exception ex) { SetStatus("同步时间失败: " + Shorten(ex.Message), Color.Firebrick); }
+            finally { btnSyncTime.Enabled = true; }
+        }
+
+        // ---------- 修改密码 ----------
+        private async Task ChangePasswordAsync()
+        {
+            string np = txtNewPwd.Text;
+            if (np.Length == 0) { MessageBox.Show("请输入新密码。", "提示"); return; }
+            if (np != txtNewPwd2.Text) { MessageBox.Show("两次输入的新密码不一致。", "提示"); return; }
+            if (np == pass) { MessageBox.Show("新密码与当前密码相同。", "提示"); return; }
+            if (MessageBox.Show($"确定把设备 {ip} 上账号 {user} 的密码改掉吗？\r\n请先记牢新密码，忘记后只能硬复位。", "确认改密码", MessageBoxButtons.OKCancel, MessageBoxIcon.Warning) != DialogResult.OK) return;
+            btnPwd.Enabled = false; SetStatus("正在修改密码...", Color.DimGray);
+            try
+            {
+                if (mode == "ONVIF")
+                {
+                    string dev = baseUrl + "/onvif/device_service", level = "Administrator";
+                    try
+                    {
+                        string us = await SoapAsync(dev, "<tds:GetUsers/>");
+                        var m = Regex.Match(us, @"<(?:\w+:)?User>.*?</(?:\w+:)?User>", RegexOptions.Singleline);
+                        foreach (Match mm in Regex.Matches(us, @"<(?:\w+:)?User>.*?</(?:\w+:)?User>", RegexOptions.Singleline))
+                            if (Rx(mm.Value, @"Username>([^<]*)<") == user) { string l = Rx(mm.Value, @"UserLevel>([^<]*)<"); if (l.Length > 0) level = l; }
+                    }
+                    catch (UnauthorizedAccessException) { throw; } catch { }
+                    await SoapAsync(dev, "<tds:SetUser><tds:User><tt:Username>" + SecurityElement.Escape(user) + "</tt:Username><tt:Password>" + SecurityElement.Escape(np) + "</tt:Password><tt:UserLevel>" + level + "</tt:UserLevel></tds:User></tds:SetUser>");
+                }
+                else if (mode == "HIK")
+                {
+                    string us = await HttpGetAsync("/ISAPI/Security/users");
+                    string id = "1";
+                    foreach (Match mm in Regex.Matches(us, @"<User>.*?</User>", RegexOptions.Singleline | RegexOptions.IgnoreCase))
+                        if (Rx(mm.Value, @"userName>([^<]*)<") == user) { id = Rx(mm.Value, @"<id>([^<]*)<"); break; }
+                    await HttpPutXmlAsync("/ISAPI/Security/users/" + id, "<User><id>" + id + "</id><userName>" + SecurityElement.Escape(user) + "</userName><password>" + SecurityElement.Escape(np) + "</password></User>");
+                }
+                else
+                {
+                    string r = await HttpGetAsync("/cgi-bin/userManager.cgi?action=modifyPassword&name=" + Uri.EscapeDataString(user) + "&pwd=" + Uri.EscapeDataString(np) + "&pwdOld=" + Uri.EscapeDataString(pass ?? ""));
+                    if (r.IndexOf("OK", StringComparison.OrdinalIgnoreCase) < 0) throw new Exception("设备返回: " + Shorten(r));
+                }
+                txtNewPwd.Text = txtNewPwd2.Text = "";
+                txtPass.Text = np;
+                SetStatus("密码已修改，正在用新密码重新登录...", Color.DarkGreen);
+                await Task.Delay(800);
+                await LoginAsync();
+            }
+            catch (UnauthorizedAccessException) { SetStatus("没有权限修改密码", Color.Firebrick); }
+            catch (Exception ex) { SetStatus("修改密码失败: " + Shorten(ex.Message), Color.Firebrick); }
+            finally { btnPwd.Enabled = mode != null; }
+        }
+
+        // ---------- OSD ----------
+        private async Task ReadOsdAsync()
+        {
+            if (mode == "HIK")
+            {
+                string x = await HttpGetAsync("/ISAPI/System/Video/inputs/channels/1/overlays");
+                chkOsdName.Checked = Rx(RxCs(x, @"<channelNameOverlay.*?</channelNameOverlay>"), @"enabled>([^<]*)<").ToLower() == "true";
+                chkOsdTime.Checked = Rx(RxCs(x, @"<DateTimeOverlay.*?</DateTimeOverlay>"), @"enabled>([^<]*)<").ToLower() == "true";
+            }
+            else if (mode == "DAHUA")
+            {
+                string x = await HttpGetAsync("/cgi-bin/configManager.cgi?action=getConfig&name=VideoWidget");
+                chkOsdName.Checked = Rx(x, @"VideoWidget\[0\]\.ChannelTitle\.EncodeBlend=([^\r\n]*)").ToLower() == "true";
+                chkOsdTime.Checked = Rx(x, @"VideoWidget\[0\]\.TimeTitle\.EncodeBlend=([^\r\n]*)").ToLower() == "true";
+            }
+        }
+
+        private async Task ApplyOsdAsync()
+        {
+            if (mode == "ONVIF") { SetStatus("ONVIF 设备暂不支持开关 OSD", Color.Firebrick); return; }
+            btnOsdApply.Enabled = false; SetStatus("正在应用 OSD...", Color.DimGray);
+            try
+            {
+                string n = chkOsdName.Checked ? "true" : "false", t = chkOsdTime.Checked ? "true" : "false";
+                if (mode == "HIK")
+                {
+                    string p = "/ISAPI/System/Video/inputs/channels/1/overlays";
+                    string x = await HttpGetAsync(p);
+                    x = Regex.Replace(x, @"(<channelNameOverlay.*?<enabled>)[^<]*(</enabled>)", "${1}" + n + "${2}", RegexOptions.Singleline | RegexOptions.IgnoreCase);
+                    x = Regex.Replace(x, @"(<DateTimeOverlay.*?<enabled>)[^<]*(</enabled>)", "${1}" + t + "${2}", RegexOptions.Singleline | RegexOptions.IgnoreCase);
+                    await HttpPutXmlAsync(p, x);
+                }
+                else
+                {
+                    string r = await HttpGetAsync("/cgi-bin/configManager.cgi?action=setConfig&VideoWidget[0].ChannelTitle.EncodeBlend=" + n + "&VideoWidget[0].TimeTitle.EncodeBlend=" + t);
+                    if (r.IndexOf("OK", StringComparison.OrdinalIgnoreCase) < 0) throw new Exception("设备返回: " + Shorten(r));
+                }
+                SetStatus("OSD 设置已应用", Color.DarkGreen);
+            }
+            catch (UnauthorizedAccessException) { SetStatus("没有权限修改 OSD", Color.Firebrick); }
+            catch (Exception ex) { SetStatus("应用 OSD 失败: " + Shorten(ex.Message), Color.Firebrick); }
+            finally { btnOsdApply.Enabled = true; }
+        }
+
+        // ---------- 码流 ----------
+        private async Task ReadStreamAsync()
+        {
+            string enc = "", w = "", h = "", fps = "", br = "";
+            if (mode == "ONVIF")
+            {
+                string prof = await SoapAsync(mediaUrl, "<trt:GetProfiles/>");
+                string v = RxCs(prof, @"<(?:\w+:)?VideoEncoderConfiguration\b.*?</(?:\w+:)?VideoEncoderConfiguration>");
+                enc = Rx(v, @"Encoding>([^<]*)<"); w = Rx(v, @"Width>(\d+)<"); h = Rx(v, @"Height>(\d+)<");
+                fps = Rx(v, @"FrameRateLimit>(\d+)<"); br = Rx(v, @"BitrateLimit>(\d+)<");
+            }
+            else if (mode == "HIK")
+            {
+                string x = await HttpGetAsync("/ISAPI/Streaming/channels/101");
+                enc = Rx(x, @"videoCodecType>([^<]*)<"); w = Rx(x, @"videoResolutionWidth>(\d+)<"); h = Rx(x, @"videoResolutionHeight>(\d+)<");
+                int f; if (int.TryParse(Rx(x, @"maxFrameRate>(\d+)<"), out f)) fps = (f >= 100 ? f / 100 : f).ToString();
+                br = Rx(x, @"constantBitRate>(\d+)<"); if (br.Length == 0) br = Rx(x, @"vbrUpperCap>(\d+)<");
+            }
+            else
+            {
+                string x = await HttpGetAsync("/cgi-bin/configManager.cgi?action=getConfig&name=Encode");
+                enc = Rx(x, @"Encode\[0\]\.MainFormat\[0\]\.Video\.Compression=([^\r\n]*)"); w = Rx(x, @"MainFormat\[0\]\.Video\.Width=(\d+)"); h = Rx(x, @"MainFormat\[0\]\.Video\.Height=(\d+)");
+                fps = Rx(x, @"MainFormat\[0\]\.Video\.FPS=(\d+)"); br = Rx(x, @"MainFormat\[0\]\.Video\.BitRate=(\d+)");
+            }
+            txtEnc.Text = enc; txtRes.Text = (w.Length > 0 ? w + " x " + h : "");
+            int vv;
+            if (int.TryParse(fps, out vv) && vv >= 1 && vv <= 60) numFps.Value = vv;
+            if (int.TryParse(br, out vv) && vv >= 32 && vv <= 32768) numBr.Value = vv;
+            bool canSet = mode != "ONVIF";
+            numFps.Enabled = numBr.Enabled = btnStreamApply.Enabled = canSet;
+        }
+
+        private async Task ApplyStreamAsync()
+        {
+            if (mode == "ONVIF") { SetStatus("ONVIF 设备暂不支持改码流", Color.Firebrick); return; }
+            btnStreamApply.Enabled = false; SetStatus("正在应用码流设置...", Color.DimGray);
+            try
+            {
+                int fps = (int)numFps.Value, br = (int)numBr.Value;
+                if (mode == "HIK")
+                {
+                    string p = "/ISAPI/Streaming/channels/101";
+                    string x = await HttpGetAsync(p);
+                    x = Regex.Replace(x, @"(<maxFrameRate>)\d+(</maxFrameRate>)", "${1}" + fps * 100 + "${2}", RegexOptions.IgnoreCase);
+                    x = Regex.Replace(x, @"(<constantBitRate>)\d+(</constantBitRate>)", "${1}" + br + "${2}", RegexOptions.IgnoreCase);
+                    x = Regex.Replace(x, @"(<vbrUpperCap>)\d+(</vbrUpperCap>)", "${1}" + br + "${2}", RegexOptions.IgnoreCase);
+                    await HttpPutXmlAsync(p, x);
+                }
+                else
+                {
+                    string r = await HttpGetAsync("/cgi-bin/configManager.cgi?action=setConfig&Encode[0].MainFormat[0].Video.FPS=" + fps + "&Encode[0].MainFormat[0].Video.BitRate=" + br);
+                    if (r.IndexOf("OK", StringComparison.OrdinalIgnoreCase) < 0) throw new Exception("设备返回: " + Shorten(r));
+                }
+                SetStatus("码流设置已应用(画面可能中断几秒)", Color.DarkGreen);
+            }
+            catch (UnauthorizedAccessException) { SetStatus("没有权限修改码流", Color.Firebrick); }
+            catch (Exception ex) { SetStatus("应用码流失败: " + Shorten(ex.Message), Color.Firebrick); }
+            finally { btnStreamApply.Enabled = true; }
+        }
+
+        // ---------- 云台 / 变焦 ----------
+        private async Task PtzSafeAsync(string dir, bool start)
+        {
+            if (mode == null) return;
+            try { await PtzAsync(dir, start); }
+            catch (Exception ex) { SetStatus("云台操作失败(设备可能没有云台): " + Shorten(ex.Message), Color.Firebrick); }
+        }
+
+        private async Task PtzAsync(string dir, bool start)
+        {
+            bool stop = !start || dir == "S";
+            if (!stop) lastPtz = dir;
+            string d = stop && dir != "S" ? dir : (dir == "S" ? lastPtz : dir);
+            if (mode == "ONVIF")
+            {
+                if (string.IsNullOrEmpty(ptzUrl) || string.IsNullOrEmpty(profileToken)) throw new Exception("设备没有 PTZ 服务");
+                if (stop) { await SoapAsync(ptzUrl, "<tptz:Stop xmlns:tptz=\"" + NsPtz + "\"><tptz:ProfileToken>" + profileToken + "</tptz:ProfileToken><tptz:PanTilt>true</tptz:PanTilt><tptz:Zoom>true</tptz:Zoom></tptz:Stop>"); return; }
+                double x = 0, y = 0, z = 0;
+                switch (dir) { case "U": y = 0.5; break; case "D": y = -0.5; break; case "L": x = -0.5; break; case "R": x = 0.5; break; case "I": z = 0.5; break; case "O": z = -0.5; break; }
+                var ci = System.Globalization.CultureInfo.InvariantCulture;
+                await SoapAsync(ptzUrl, "<tptz:ContinuousMove xmlns:tptz=\"" + NsPtz + "\"><tptz:ProfileToken>" + profileToken + "</tptz:ProfileToken><tptz:Velocity><tt:PanTilt x=\"" + x.ToString(ci) + "\" y=\"" + y.ToString(ci) + "\"/><tt:Zoom x=\"" + z.ToString(ci) + "\"/></tptz:Velocity></tptz:ContinuousMove>");
+            }
+            else if (mode == "HIK")
+            {
+                int pan = 0, tilt = 0, zoom = 0;
+                if (!stop) switch (dir) { case "U": tilt = 60; break; case "D": tilt = -60; break; case "L": pan = -60; break; case "R": pan = 60; break; case "I": zoom = 60; break; case "O": zoom = -60; break; }
+                await HttpPutXmlAsync("/ISAPI/PTZCtrl/channels/1/continuous", "<PTZData><pan>" + pan + "</pan><tilt>" + tilt + "</tilt><zoom>" + zoom + "</zoom></PTZData>");
+            }
+            else
+            {
+                string code = null;
+                switch (d) { case "U": code = "Up"; break; case "D": code = "Down"; break; case "L": code = "Left"; break; case "R": code = "Right"; break; case "I": code = "ZoomTele"; break; case "O": code = "ZoomWide"; break; }
+                if (code == null) return;
+                await HttpGetAsync("/cgi-bin/ptz.cgi?action=" + (stop ? "stop" : "start") + "&channel=0&code=" + code + "&arg1=0&arg2=5&arg3=0");
+            }
         }
         #endregion
     }

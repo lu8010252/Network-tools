@@ -11,7 +11,7 @@
     <ImplicitUsings>disable</ImplicitUsings>
     <Nullable>disable</Nullable>
     <LangVersion>latest</LangVersion>
-    <Version>1.1.0</Version>
+    <Version>1.2.0</Version>
     <Product>网络工具箱</Product>
     <SatelliteResourceLanguages>zh-Hans;en</SatelliteResourceLanguages>
     <!-- 允许在 Linux / macOS / CI 上交叉编译 Windows 程序 -->
